@@ -73,7 +73,8 @@ public class PaymentsController(
         var payment = await paymentQueryService.Handle(query);
 
         if (payment is null) return NotFound();
-
+        var resource = PaymentResourceFromEntityAssembler.ToResourceFromEntity(payment);
+        return Ok(resource);
 
     }
 }
