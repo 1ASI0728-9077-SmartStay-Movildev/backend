@@ -74,7 +74,6 @@ public class PaymentsController(
 
         if (payment is null) return NotFound();
 
-        var resource = PaymentResourceFromEntityAssembler.ToResourceFromEntity(payment);
-        return Ok(resource);
+
     }
 }
