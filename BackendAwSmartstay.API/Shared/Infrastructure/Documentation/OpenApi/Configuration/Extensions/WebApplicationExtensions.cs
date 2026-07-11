@@ -14,9 +14,16 @@ public static class WebApplicationExtensions
     /// </remarks>
     public static void UseOpenApiConfiguration(this WebApplication app)
     {
-        app.MapOpenApi();
         app.UseSwagger();
-        app.UseSwaggerUI();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "BackendAwSmartstay API v1");
+            
+            // Sugerencia: Deja la ruta vacía para ingresar a Swagger desde el link principal de Render
+            c.RoutePrefix = string.Empty; 
+        });
+
+        return app;
     }
 
     /// <summary>
