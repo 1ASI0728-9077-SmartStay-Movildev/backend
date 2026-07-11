@@ -111,6 +111,6 @@ app.UseRequestAuthorization();
 
 app.MapControllers();
 // maping health checks endpoint
-app.MapHealthChecks("/health");
+app.MapHealthChecks(/health);
 
 app.Run();
