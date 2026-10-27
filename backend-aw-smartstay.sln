@@ -10,6 +10,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "contracts", "contracts", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartStay.Contracts", "contracts\SmartStay.Contracts.csproj", "{7B87AE40-F850-42FB-8516-84EDF241B18E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{984BB9B3-3FA3-BE33-9484-CAC21695A33C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartStay.Accommodations", "src\Services\SmartStay.Accommodations\SmartStay.Accommodations.csproj", "{57E4CF88-BF6A-405D-9219-51CE82D353F8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +62,18 @@ Global
 		{7B87AE40-F850-42FB-8516-84EDF241B18E}.Release|x64.Build.0 = Release|Any CPU
 		{7B87AE40-F850-42FB-8516-84EDF241B18E}.Release|x86.ActiveCfg = Release|Any CPU
 		{7B87AE40-F850-42FB-8516-84EDF241B18E}.Release|x86.Build.0 = Release|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Debug|x64.Build.0 = Debug|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Debug|x86.Build.0 = Debug|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Release|x64.ActiveCfg = Release|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Release|x64.Build.0 = Release|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Release|x86.ActiveCfg = Release|Any CPU
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -63,5 +81,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{B5308376-2557-41B1-8C90-0231AB857C8E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{7B87AE40-F850-42FB-8516-84EDF241B18E} = {A73F2606-6D4C-3EEE-1759-0E59DCFEF523}
+		{984BB9B3-3FA3-BE33-9484-CAC21695A33C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{57E4CF88-BF6A-405D-9219-51CE82D353F8} = {984BB9B3-3FA3-BE33-9484-CAC21695A33C}
 	EndGlobalSection
 EndGlobal

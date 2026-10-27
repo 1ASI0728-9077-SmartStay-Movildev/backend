@@ -72,6 +72,25 @@ services:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - legacy
+      - accommodations
+
+  accommodations:
+    build:
+      context: .
+      dockerfile: src/Services/SmartStay.Accommodations/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__AccommodationsConnection: "server=mysql;port=3306;user=accommodations_user;password=accommodations_pass;database=smartstay_accommodations;"
+      Services__IamUrl: "http://legacy:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      legacy:
+        condition: service_started
+    expose:
+      - "8080"
 
 volumes:
   mysql_data:
