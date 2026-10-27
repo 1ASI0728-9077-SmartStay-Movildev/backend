@@ -12,7 +12,7 @@ namespace BackendAwSmartstay.API.Accommodations.Application.Internal.CommandServ
 /// </summary>
 public class HotelCommandService(
     IHotelRepository hotelRepository,
-    IUnitOfWork unitOfWork)
+    IAccommodationsUnitOfWork unitOfWork)
     : IHotelCommandService
 {
     /// <summary>

@@ -12,7 +12,7 @@ namespace BackendAwSmartstay.API.Accommodations.Application.Internal.CommandServ
 /// </summary>
 public class RoomCommandService(
     IRoomRepository roomRepository,
-    IUnitOfWork unitOfWork)
+    IAccommodationsUnitOfWork unitOfWork)
     : IRoomCommandService
 {
     public async Task<Room?> Handle(CreateRoomCommand command)

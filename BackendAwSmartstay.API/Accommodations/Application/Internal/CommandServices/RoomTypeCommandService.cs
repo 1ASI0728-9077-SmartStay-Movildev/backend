@@ -13,7 +13,7 @@ namespace BackendAwSmartstay.API.Accommodations.Application.Internal.CommandServ
 
 public class RoomTypeCommandService(
     IRoomTypeRepository roomTypeRepository,
-    IUnitOfWork unitOfWork)
+    IAccommodationsUnitOfWork unitOfWork)
     : IRoomTypeCommandService
 {/// <summary>
     /// Creates a new room type using the provided command
