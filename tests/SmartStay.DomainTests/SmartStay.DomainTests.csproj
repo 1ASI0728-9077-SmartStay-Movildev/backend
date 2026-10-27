@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\BackendAwSmartstay.API\BackendAwSmartstay.API.csproj" />
+    <ProjectReference Include="..\..\contracts\SmartStay.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

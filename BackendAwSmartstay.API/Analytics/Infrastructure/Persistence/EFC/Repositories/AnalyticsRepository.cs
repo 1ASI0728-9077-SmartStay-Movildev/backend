@@ -1,48 +1,38 @@
 using BackendAwSmartstay.API.Analytics.Domain.Model.Aggregates;
 using BackendAwSmartstay.API.Analytics.Domain.Repositories;
-using BackendAwSmartstay.API.Bookings.Domain.Model.Aggregates; // Acceso a BookingStatus
-using BackendAwSmartstay.API.Shared.Infrastructure.Persistence.EFC.Configuration;
-using Microsoft.EntityFrameworkCore;
+using BackendAwSmartstay.API.Analytics.Domain.Services.Ports;
 
 namespace BackendAwSmartstay.API.Analytics.Infrastructure.Persistence.EFC.Repositories;
 
 /// <summary>
-/// Implementation of the analytics repository using Entity Framework Core.
+/// Repositorio de analítica desacoplado mediante puertos de consulta.
+/// Durante la transición utiliza adaptadores locales; al extraer servicios se sustituyen por adaptadores HTTP o proyecciones asíncronas.
 /// </summary>
-public class AnalyticsRepository(AppDbContext context) : IAnalyticsRepository
+public class AnalyticsRepository(
+    IRevenueQueryPort revenueQueryPort,
+    IBookingStatsQueryPort bookingStatsQueryPort,
+    ICatalogQueryPort catalogQueryPort) : IAnalyticsRepository
 {
     public async Task<PerformanceMetrics> GetMonthlyMetricsAsync()
     {
         var now = DateTime.UtcNow;
-        var startOfMonth = new DateTime(now.Year, now.Month, 1);
-        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+        var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var endOfMonthExclusive = startOfMonth.AddMonths(1);
 
-        // 1. Calculate Revenue (From Payments table ideally, or Bookings logic)
-        // Assuming we look at Payments for confirmed revenue
-        var totalRevenue = await context.Set<Payments.Domain.Model.Aggregates.Payment>()
-            .Where(p => p.PaymentDate >= startOfMonth && p.PaymentDate <= endOfMonth && p.Status == Payments.Domain.Model.Aggregates.PaymentStatus.Completed)
-            .SumAsync(p => p.Amount);
+        // 1. Ingresos totales (intervalo exacto [inicioMes, inicioMesSiguiente))
+        var totalRevenue = await revenueQueryPort.GetTotalRevenueAsync(startOfMonth, endOfMonthExclusive);
 
-        // 2. Booking Stats
-        var bookingsQuery = context.Set<Booking>()
-            .Where(b => b.CheckInDate >= startOfMonth && b.CheckInDate <= endOfMonth);
+        // 2. Estadísticas de reservas del mes
+        var (totalBookings, cancelledBookings, confirmedBookings) =
+            await bookingStatsQueryPort.GetBookingStatsAsync(startOfMonth, endOfMonthExclusive);
 
-        var totalBookings = await bookingsQuery.CountAsync();
-        
-        var cancelledBookings = await bookingsQuery
-            .CountAsync(b => b.Status == BookingStatus.Cancelled);
+        // 3. Tasa de ocupación
+        var totalRooms = await catalogQueryPort.GetTotalRoomsCountAsync();
 
-        // 3. Occupancy Rate (Simplified logic: Booked Rooms / Total Rooms * 100)
-        // Note: For a real rigorous calculation, we'd check day-by-day availability.
-        var totalRooms = await context.Set<Accommodations.Domain.Model.Aggregates.Room>().CountAsync();
-        
         double occupancyRate = 0;
         if (totalRooms > 0 && totalBookings > 0)
         {
-            // Simple heuristic: (Confirmed Bookings / Total Rooms) * 100
-            // This is a snapshot, a real system would calculate room-nights.
-            var activeBookings = await bookingsQuery.CountAsync(b => b.Status == BookingStatus.Confirmed);
-            occupancyRate = ((double)activeBookings / totalRooms) * 100;
+            occupancyRate = ((double)confirmedBookings / totalRooms) * 100;
         }
 
         return new PerformanceMetrics

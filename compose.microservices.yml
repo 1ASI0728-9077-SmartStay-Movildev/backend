@@ -1,0 +1,78 @@
+services:
+  mysql:
+    image: mysql:8.0.36
+    container_name: smartstay-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-backend-smartstay-db}
+      MYSQL_USER: ${MYSQL_USER:-smartstay_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smartstay_password}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql/init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  activemq:
+    image: apache/activemq-classic:5.18.3
+    container_name: smartstay-activemq
+    restart: unless-stopped
+    environment:
+      ACTIVEMQ_USER: ${ACTIVEMQ_USER:-admin}
+      ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD:-admin}
+    ports:
+      - "${ACTIVEMQ_OPENWIRE_PORT:-61616}:61616"
+      - "${ACTIVEMQ_WEB_PORT:-8161}:8161"
+    volumes:
+      - activemq_data:/opt/apache-activemq/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 61616 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  legacy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartstay-legacy
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "server=mysql;port=3306;user=root;password=${MYSQL_ROOT_PASSWORD:-rootpassword};database=${MYSQL_DATABASE:-backend-smartstay-db};"
+      ConnectionStrings__RedisConnection: "redis:6379"
+      TokenSettings__Secret: ${JWT_SECRET:-EstaEsUnaClaveSecretaMuyLargaYSeguraParaSmartStay123!}
+      TokenSettings__Audience: ${JWT_AUDIENCE:-http://localhost:5173}
+      TokenSettings__Issuer: ${JWT_ISSUER:-http://localhost:5192}
+      TokenSettings__ExpirationInHours: ${JWT_EXPIRATION_HOURS:-24}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      activemq:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: smartstay-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - legacy
+
+volumes:
+  mysql_data:
+  activemq_data:
