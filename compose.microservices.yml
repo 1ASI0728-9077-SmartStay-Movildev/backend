@@ -75,6 +75,7 @@ services:
       - accommodations
       - bookings
       - payments
+      - profiles
 
   accommodations:
     build:
@@ -138,6 +139,24 @@ services:
       legacy:
         condition: service_started
       bookings:
+        condition: service_started
+    expose:
+      - "8080"
+
+  profiles:
+    build:
+      context: .
+      dockerfile: src/Services/SmartStay.Profiles/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ProfilesConnection: "server=mysql;port=3306;user=profiles_user;password=profiles_pass;database=smartstay_profiles;"
+      Services__IamUrl: "http://legacy:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      legacy:
         condition: service_started
     expose:
       - "8080"
