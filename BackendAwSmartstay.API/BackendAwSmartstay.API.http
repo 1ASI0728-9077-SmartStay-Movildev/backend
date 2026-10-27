@@ -1,6 +1,0 @@
-@Host = http://localhost:5192
-
-GET {{Host}}/swagger/v1/swagger.json
-Accept: application/json
-
-###

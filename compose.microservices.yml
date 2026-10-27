@@ -285,34 +285,6 @@ services:
       - ./artifacts/migrations:/migrations:ro
     entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_analytics < /migrations/analytics.sql"]
 
-  # =================================================================
-  # Decommissioned Monolith Service (Disabled by default)
-  # Kept strictly for emergency backward comparison via --profile legacy
-  # =================================================================
-  legacy:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: smartstay-legacy
-    profiles: ["legacy"]
-    restart: "no"
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "server=mysql;port=3306;user=root;password=${MYSQL_ROOT_PASSWORD:-rootpassword};database=${MYSQL_DATABASE:-backend-smartstay-db};"
-      ConnectionStrings__RedisConnection: "redis:6379"
-      TokenSettings__Secret: ${JWT_SECRET:-EstaEsUnaClaveSecretaMuyLargaYSeguraParaSmartStay123!}
-      TokenSettings__Audience: ${JWT_AUDIENCE:-http://localhost:5173}
-      TokenSettings__Issuer: ${JWT_ISSUER:-http://localhost:5192}
-      TokenSettings__ExpirationInHours: ${JWT_EXPIRATION_HOURS:-24}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      activemq:
-        condition: service_healthy
-    expose:
-      - "8080"
-
 volumes:
   mysql_data:
   activemq_data:
