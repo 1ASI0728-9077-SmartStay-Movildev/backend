@@ -76,6 +76,26 @@ services:
       - bookings
       - payments
       - profiles
+      - iam
+
+  iam:
+    build:
+      context: .
+      dockerfile: src/Services/SmartStay.IAM/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__IamConnection: "server=mysql;port=3306;user=iam_user;password=iam_pass;database=smartstay_iam;"
+      TokenSettings__Secret: ${JWT_SECRET:-EstaEsUnaClaveSecretaMuyLargaYSeguraParaSmartStay123!}
+      TokenSettings__Audience: ${JWT_AUDIENCE:-http://localhost:5173}
+      TokenSettings__Issuer: ${JWT_ISSUER:-http://localhost:5192}
+      TokenSettings__ExpirationInHours: ${JWT_EXPIRATION_HOURS:-24}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    expose:
+      - "8080"
 
   accommodations:
     build:
@@ -86,11 +106,11 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__AccommodationsConnection: "server=mysql;port=3306;user=accommodations_user;password=accommodations_pass;database=smartstay_accommodations;"
-      Services__IamUrl: "http://legacy:8080"
+      Services__IamUrl: "http://iam:8080"
     depends_on:
       mysql:
         condition: service_healthy
-      legacy:
+      iam:
         condition: service_started
     expose:
       - "8080"
@@ -105,14 +125,14 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__BookingsConnection: "server=mysql;port=3306;user=bookings_user;password=bookings_pass;database=smartstay_bookings;"
       Services__AccommodationsUrl: "http://accommodations:8080"
-      Services__IamUrl: "http://legacy:8080"
+      Services__IamUrl: "http://iam:8080"
       ActiveMq__BrokerUri: "tcp://activemq:61616"
     depends_on:
       mysql:
         condition: service_healthy
       activemq:
         condition: service_healthy
-      legacy:
+      iam:
         condition: service_started
       accommodations:
         condition: service_started
@@ -129,14 +149,14 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__PaymentsConnection: "server=mysql;port=3306;user=payments_user;password=payments_pass;database=smartstay_payments;"
       Services__BookingsUrl: "http://bookings:8080"
-      Services__IamUrl: "http://legacy:8080"
+      Services__IamUrl: "http://iam:8080"
       ActiveMq__BrokerUri: "tcp://activemq:61616"
     depends_on:
       mysql:
         condition: service_healthy
       activemq:
         condition: service_healthy
-      legacy:
+      iam:
         condition: service_started
       bookings:
         condition: service_started
@@ -152,11 +172,11 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__ProfilesConnection: "server=mysql;port=3306;user=profiles_user;password=profiles_pass;database=smartstay_profiles;"
-      Services__IamUrl: "http://legacy:8080"
+      Services__IamUrl: "http://iam:8080"
     depends_on:
       mysql:
         condition: service_healthy
-      legacy:
+      iam:
         condition: service_started
     expose:
       - "8080"
