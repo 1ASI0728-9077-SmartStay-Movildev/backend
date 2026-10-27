@@ -23,6 +23,12 @@ public sealed record PaymentCompletedV1(
     string Currency
 );
 
+public sealed record PaymentFailedV1(
+    int PaymentId,
+    int BookingId,
+    string Reason
+);
+
 public sealed record BookingCreatedV1(
     int BookingId,
     int RoomId,
@@ -60,4 +66,11 @@ public sealed record PaymentRefundedV1(
     int PaymentId,
     int BookingId,
     decimal Amount
+);
+
+public sealed record UserRegisteredV1(
+    int UserId,
+    string Email,
+    string FirstName,
+    string LastName
 );

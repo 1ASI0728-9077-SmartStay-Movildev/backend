@@ -74,6 +74,7 @@ services:
       - legacy
       - accommodations
       - bookings
+      - payments
 
   accommodations:
     build:
@@ -104,12 +105,39 @@ services:
       ConnectionStrings__BookingsConnection: "server=mysql;port=3306;user=bookings_user;password=bookings_pass;database=smartstay_bookings;"
       Services__AccommodationsUrl: "http://accommodations:8080"
       Services__IamUrl: "http://legacy:8080"
+      ActiveMq__BrokerUri: "tcp://activemq:61616"
     depends_on:
       mysql:
+        condition: service_healthy
+      activemq:
         condition: service_healthy
       legacy:
         condition: service_started
       accommodations:
+        condition: service_started
+    expose:
+      - "8080"
+
+  payments:
+    build:
+      context: .
+      dockerfile: src/Services/SmartStay.Payments/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PaymentsConnection: "server=mysql;port=3306;user=payments_user;password=payments_pass;database=smartstay_payments;"
+      Services__BookingsUrl: "http://bookings:8080"
+      Services__IamUrl: "http://legacy:8080"
+      ActiveMq__BrokerUri: "tcp://activemq:61616"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      activemq:
+        condition: service_healthy
+      legacy:
+        condition: service_started
+      bookings:
         condition: service_started
     expose:
       - "8080"

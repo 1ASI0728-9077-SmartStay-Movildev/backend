@@ -73,6 +73,9 @@ builder.Services.AddHttpClient<IIdentityVerificationClient, IdentityVerification
 // Health Checks
 builder.Services.AddHealthChecks();
 
+// Background Consumer Worker para pagos de ActiveMQ
+builder.Services.AddHostedService<SmartStay.Bookings.Infrastructure.Messaging.BookingsPaymentConsumerWorker>();
+
 var app = builder.Build();
 
 app.UseSwagger();

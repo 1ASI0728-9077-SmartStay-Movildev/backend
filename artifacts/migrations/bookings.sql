@@ -97,5 +97,43 @@ DELIMITER ;
 CALL MigrationsScript();
 DROP PROCEDURE MigrationsScript;
 
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027014510_AddBookingsInbox') THEN
+
+    CREATE TABLE `inbox_messages` (
+        `consumer_name` varchar(50) CHARACTER SET utf8mb4 NOT NULL,
+        `event_id` char(36) COLLATE ascii_general_ci NOT NULL,
+        `event_type` varchar(150) CHARACTER SET utf8mb4 NOT NULL,
+        `received_at_utc` datetime(6) NOT NULL,
+        `processed_at_utc` datetime(6) NULL,
+        `status` varchar(50) CHARACTER SET utf8mb4 NOT NULL,
+        `last_error` varchar(1000) CHARACTER SET utf8mb4 NULL,
+        CONSTRAINT `pk_inbox_messages` PRIMARY KEY (`consumer_name`, `event_id`)
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027014510_AddBookingsInbox') THEN
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20261027014510_AddBookingsInbox', '9.0.10');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
 COMMIT;
 
