@@ -73,6 +73,7 @@ services:
     depends_on:
       - legacy
       - accommodations
+      - bookings
 
   accommodations:
     build:
@@ -88,6 +89,27 @@ services:
       mysql:
         condition: service_healthy
       legacy:
+        condition: service_started
+    expose:
+      - "8080"
+
+  bookings:
+    build:
+      context: .
+      dockerfile: src/Services/SmartStay.Bookings/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__BookingsConnection: "server=mysql;port=3306;user=bookings_user;password=bookings_pass;database=smartstay_bookings;"
+      Services__AccommodationsUrl: "http://accommodations:8080"
+      Services__IamUrl: "http://legacy:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      legacy:
+        condition: service_started
+      accommodations:
         condition: service_started
     expose:
       - "8080"

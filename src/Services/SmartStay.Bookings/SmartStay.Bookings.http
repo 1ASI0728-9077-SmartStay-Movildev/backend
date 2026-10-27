@@ -1,0 +1,6 @@
+@SmartStay.Bookings_HostAddress = http://localhost:5117
+
+GET {{SmartStay.Bookings_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
