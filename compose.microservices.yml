@@ -54,6 +54,7 @@ services:
       - payments
       - profiles
       - analytics
+      - concierge
 
   iam:
     build:
@@ -211,6 +212,36 @@ services:
       activemq:
         condition: service_healthy
       iam:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    expose:
+      - "8080"
+
+  concierge:
+    build:
+      context: .
+      dockerfile: src/Services/SmartStay.Concierge/Dockerfile
+    container_name: smartstay-concierge
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Services__AccommodationsUrl: "http://accommodations:8080"
+      Services__BookingsUrl: "http://bookings:8080"
+      Services__IamUrl: "http://iam:8080"
+      DeepSeek__ApiKey: ${DEEPSEEK_API_KEY:-}
+      DeepSeek__Model: ${DEEPSEEK_MODEL:-deepseek-chat}
+    depends_on:
+      iam:
+        condition: service_started
+      accommodations:
+        condition: service_started
+      bookings:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]

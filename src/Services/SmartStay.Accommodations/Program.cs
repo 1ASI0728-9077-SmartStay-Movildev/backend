@@ -88,6 +88,9 @@ app.UseSwaggerUI(c =>
 
 app.UseCors("AllowAll");
 
+// Archivos estáticos para assets de recorridos virtuales 360
+app.UseStaticFiles();
+
 // Middleware de verificación de identidad compatible
 app.UseMiddleware<AccommodationsAuthenticationMiddleware>();
 
