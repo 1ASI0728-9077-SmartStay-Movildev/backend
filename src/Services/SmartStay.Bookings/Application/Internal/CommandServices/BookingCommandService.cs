@@ -24,9 +24,9 @@ public class BookingCommandService(
         }
 
         var stayDuration = (command.CheckOutDate.Date - command.CheckInDate.Date).Days;
-        if (stayDuration < 1)
+        if (stayDuration is < 1 or > 30)
         {
-            logger.LogWarning("Booking duration must be at least 1 night.");
+            logger.LogWarning("Booking duration must be between 1 and 30 nights. Provided: {Duration}", stayDuration);
             return null;
         }
 
@@ -92,8 +92,19 @@ public class BookingCommandService(
         catch (DbUpdateException ex)
         {
             await transaction.RollbackAsync();
-            logger.LogWarning(ex, "Concurrency collision: Room #{RoomId} was locked concurrently for the requested dates.", command.RoomId);
-            throw new RoomAlreadyBookedException(command.RoomId, stayDates[0]);
+
+            var isNightLockCollision = ex.InnerException?.Message.Contains("room_night_locks", StringComparison.OrdinalIgnoreCase) == true
+                || ex.InnerException?.Message.Contains("Duplicate entry", StringComparison.OrdinalIgnoreCase) == true
+                || ex.Message.Contains("room_night_locks", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (isNightLockCollision)
+            {
+                logger.LogWarning(ex, "Physical night collision: Room #{RoomId} was locked concurrently for the requested dates.", command.RoomId);
+                throw new RoomAlreadyBookedException(command.RoomId, stayDates[0]);
+            }
+
+            logger.LogError(ex, "Non-collision database error creating booking for room {RoomId}.", command.RoomId);
+            throw;
         }
         catch (Exception ex)
         {
@@ -105,32 +116,56 @@ public class BookingCommandService(
 
     public async Task<Booking?> Handle(ConfirmBookingCommand command)
     {
-        var booking = await bookingRepository.FindByIdAsync(command.BookingId);
-        if (booking is null) return null;
+        await using var tx = await unitOfWork.BeginTransactionAsync();
+        try
+        {
+            var booking = await bookingRepository.FindByIdAsync(command.BookingId);
+            if (booking is null) return null;
 
-        booking.Confirm();
-        bookingRepository.Update(booking);
-        await unitOfWork.CompleteAsync();
+            booking.Confirm();
+            bookingRepository.Update(booking);
+            await unitOfWork.CompleteAsync();
+            await tx.CommitAsync();
 
-        logger.LogInformation("Booking #{BookingId} confirmed.", booking.Id);
-        return booking;
+            logger.LogInformation("Booking #{BookingId} confirmed.", booking.Id);
+            return booking;
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            await tx.RollbackAsync();
+            logger.LogWarning(ex, "Concurrency conflict confirming booking #{BookingId}.", command.BookingId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync();
+            logger.LogError(ex, "Error confirming booking #{BookingId}.", command.BookingId);
+            throw;
+        }
     }
 
     public async Task<Booking?> Handle(CancelBookingCommand command)
     {
-        var booking = await bookingRepository.FindByIdAsync(command.BookingId);
-        if (booking is null) return null;
-
         await using var tx = await unitOfWork.BeginTransactionAsync();
         try
         {
+            var booking = await bookingRepository.FindByIdAsync(command.BookingId);
+            if (booking is null) return null;
+
             booking.Cancel();
             await bookingRepository.RemoveLocksByBookingIdAsync(booking.Id);
+            bookingRepository.Update(booking);
             await unitOfWork.CompleteAsync();
             await tx.CommitAsync();
 
             logger.LogInformation("Booking #{BookingId} cancelled and night locks released.", booking.Id);
             return booking;
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            await tx.RollbackAsync();
+            logger.LogWarning(ex, "Concurrency conflict cancelling booking #{BookingId}.", command.BookingId);
+            throw;
         }
         catch (Exception ex)
         {
@@ -158,6 +193,11 @@ public class BookingCommandService(
                 await tx.CommitAsync();
                 count++;
                 logger.LogInformation("Booking #{BookingId} expired and night locks released.", booking.Id);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                await tx.RollbackAsync();
+                logger.LogInformation("Booking #{BookingId} was updated or confirmed concurrently. Skipping expiration.", booking.Id);
             }
             catch (Exception ex)
             {

@@ -2,8 +2,6 @@ using System.Net.Mime;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartStay.Concierge.Application;
-using SmartStay.Concierge.Infrastructure.Security;
-using SmartStay.Contracts.Constants;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace SmartStay.Concierge.Interfaces.REST;
@@ -33,6 +31,26 @@ public class ConciergeController(RecommendRooms recommendRooms) : ControllerBase
         if (nights is < 1 or > 30)
         {
             return BadRequest(new { message = "Stay duration must be between 1 and 30 nights for MVP." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Message) || request.Message.Length > 500)
+        {
+            return BadRequest(new { message = "Message must be provided and cannot exceed 500 characters." });
+        }
+
+        if (request.Guests is < 1 or > 10)
+        {
+            return BadRequest(new { message = "Guests count must be between 1 and 10." });
+        }
+
+        if (request.BudgetTotal < 0)
+        {
+            return BadRequest(new { message = "BudgetTotal cannot be negative." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Currency) && !string.Equals(request.Currency, "USD", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Only USD currency is supported for the MVP." });
         }
 
         var response = await recommendRooms.ExecuteAsync(request, ct);

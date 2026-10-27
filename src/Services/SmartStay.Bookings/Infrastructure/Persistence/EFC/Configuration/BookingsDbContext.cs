@@ -37,6 +37,7 @@ public sealed class BookingsDbContext(DbContextOptions<BookingsDbContext> option
         builder.Entity<Booking>().Property(b => b.Status).HasConversion<int>().IsRequired();
         builder.Entity<Booking>().Property(b => b.ExpiresAtUtc);
         builder.Entity<Booking>().Property(b => b.CreatedAtUtc).IsRequired();
+        builder.Entity<Booking>().Property(b => b.ConcurrencyToken).IsConcurrencyToken().IsRequired();
 
         // RoomNightLock Entity (Exclusión física de concurrencia)
         builder.Entity<RoomNightLock>().ToTable("room_night_locks");

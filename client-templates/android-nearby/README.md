@@ -9,16 +9,21 @@ Este módulo proporciona la integración oficial para compartir fichas de habita
 1. **Estrategia P2P**: Emplea `Strategy.P2P_POINT_TO_POINT` (alta tasa de transferencia, topología 1 a 1 de proximidad Bluetooth/Wi-Fi Direct).
 2. **Carga Útil Segura (< 4 KB)**:
    - Solo transfiere metadatos inmutables de catálogo (`roomId`, `hotelId`, `hotelName`, `roomTypeName`, `district`, `nightlyPrice`, `currency`, `hasTour`).
+   - Tanto el emisor como el receptor validan estrictamente que el tamaño sea `<= 4096` bytes.
    - **Prohibido**: No contiene credenciales de usuario, JWT, tokens de sesión, datos de tarjetas de crédito ni reservas vivas.
-   - Si el receptor está offline, visualiza la ficha en modo lectura («datos pendientes de sincronización»). Al reconectar a Internet, la app revalida precios y disponibilidad con el backend `SmartStay.Accommodations` y `SmartStay.Bookings`.
+   - Si el receptor está offline, visualiza la ficha en modo lectura con el flag `isPendingOnlineSync = true` («datos pendientes de sincronización»). Al reconectar a Internet, la app revalida precios y disponibilidad con el backend `SmartStay.Accommodations` y `SmartStay.Bookings`.
 3. **Autenticación Bilateral**:
    - Uso de `authenticationDigits` en `ConnectionLifecycleCallback.onConnectionInitiated`.
    - Ambos usuarios deben comparar y aprobar los dígitos antes de invocar `acceptConnection()`.
-4. **ACK de Aplicación**:
-   - La entrega solo se considera exitosa (`Delivered`) cuando el receptor procesa y devuelve un payload `room-card-ack` con el `messageId` correspondiente.
-5. **Aislamiento de Dominio**:
+4. **ACK de Aplicación Condicionado a Validación**:
+   - El receptor deserializa la ficha y la pasa por `ShareRoomUseCase.validateReceivedCard()`.
+   - El ACK (`room-card-ack`) se emite **únicamente si la validación de dominio es exitosa**.
+   - Si se recibe un mensaje duplicado (por pérdida de ACK previo en el emisor), el transporte reenvía inmediatamente el ACK para desbloquear al emisor sin duplicar el estado en la UI.
+5. **Timeout de 30 Segundos**:
+   - El `NearbyShareViewModel` gestiona un temporizador de 30s para descubrimiento, conexión y envío. Si el tiempo expira, se apagan los radios y se notifica al usuario para evitar drenaje de batería.
+6. **Aislamiento de Dominio y Reactividad**:
    - `ShareRoomCard.kt` y `ShareRoomUseCase.kt` no dependen de bibliotecas de Google.
-   - Las dependencias de Google Play Services se confinan a `NearbyRoomTransport.kt`.
+   - `NearbyShareViewModel` expone el estado de forma reactiva mediante `StateFlow<NearbyShareUiState>`.
 
 ---
 
@@ -31,7 +36,8 @@ dependencies {
     // Google Nearby Connections API
     implementation("com.google.android.gms:play-services-nearby:19.5.1")
 
-    // Coroutines / Lifecycle (si aplica en la app)
+    // Coroutines & Lifecycle
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6")
 }
 ```
@@ -90,8 +96,8 @@ Nearby Connections requiere permisos de Bluetooth, Wi-Fi y ubicación según la 
 |---|---|---|
 | **Domain** | [`ShareRoomCard.kt`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/client-templates/android-nearby/ShareRoomCard.kt) | Ficha inmutable <4KB y estructura de confirmación (`ShareRoomAck`). |
 | **Application** | [`ShareRoomUseCase.kt`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/client-templates/android-nearby/ShareRoomUseCase.kt) | Validación de contrato, deduplicación y emparejamiento de ACK. |
-| **Data** | [`NearbyRoomTransport.kt`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/client-templates/android-nearby/NearbyRoomTransport.kt) | Adaptador con `Nearby.getConnectionsClient(context)`, `P2P_POINT_TO_POINT`, `SERVICE_ID`. |
-| **Presentation** | [`NearbyShareViewModel.kt`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/client-templates/android-nearby/NearbyShareViewModel.kt) | Máquina de estados UI (`Idle` → `Discovering`/`Advertising` → `AwaitingVerification` → `Sending` → `Delivered`). |
+| **Data** | [`NearbyRoomTransport.kt`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/client-templates/android-nearby/NearbyRoomTransport.kt) | Adaptador con `Nearby.getConnectionsClient(context)`, límite 4KB en entrada y reenvío de ACK a duplicados. |
+| **Presentation** | [`NearbyShareViewModel.kt`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/client-templates/android-nearby/NearbyShareViewModel.kt) | Máquina de estados reactiva con `StateFlow`, temporizador de timeout de 30s y revalidación online. |
 
 ---
 
@@ -110,5 +116,6 @@ Nearby Connections requiere permisos de Bluetooth, Wi-Fi y ubicación según la 
    - Ambos usuarios presionan «Aceptar / Confirmar dígitos».
 4. **Intercambio y ACK**:
    - El Dispositivo A serializa la ficha en JSON y la transmite vía `Payload.fromBytes()`.
-   - El Dispositivo B recibe los bytes, valida el esquema con `ShareRoomUseCase` y emite de vuelta un payload `room-card-ack`.
+   - El Dispositivo B recibe los bytes, valida que no superen 4KB, valida el esquema con `ShareRoomUseCase` y emite de vuelta un payload `room-card-ack`.
    - El Dispositivo A recibe el ACK y muestra «¡Habitación compartida con éxito!». Ambos apagan los radios de escaneo.
+   - Al volver a tener conexión a Internet, el Dispositivo B sincroniza precios y disponibilidad con el backend central.

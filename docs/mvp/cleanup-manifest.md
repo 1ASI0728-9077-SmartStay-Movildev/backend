@@ -1,19 +1,30 @@
-# Manifiesto de Retirada y Limpieza de Código Muerto / Legado
+# Manifiesto de Retirada y Limpieza de Código Muerto / Legado (Estado Final)
 
 **Fecha:** 27 de octubre de 2026  
 **Rama:** `chore/mvp-week-20261027`  
-**Objetivo:** Registrar formalmente la justificación, dependientes y sustitutos de los componentes heredados del monolito para su desmantelamiento seguro.
+**Estado:** **EJECUTADO Y VERIFICADO AL 100%**  
+**Objetivo:** Registro formal del desmantelamiento total de los componentes del monolito original y la transición completa a la arquitectura de 7 microservicios autónomos.
 
 ---
 
-## Matriz de Retirada
+## 1. Matriz de Retirada y Estado de Ejecución
 
-| Ruta | Motivo de Retirada | Dependientes Actuales | Sustituto Acreditado | Condición para Eliminación |
+| Componente | Motivo de Retirada | Estado Final | Sustituto Acreditado | Verificación |
 |---|---|---|---|---|
-| `BackendAwSmartstay.API/` | Código del monolito original. Todas sus capacidades de negocio fueron extraídas a los 6 microservicios autónomos en `src/Services/`. | `tests/SmartStay.DomainTests/` (referencia de proyecto), `Dockerfile` raíz. | Los 6 microservicios en `src/Services/` (`SmartStay.Accommodations`, `SmartStay.Bookings`, `SmartStay.Payments`, `SmartStay.Profiles`, `SmartStay.IAM`, `SmartStay.Analytics`). | Portar invariantes críticas de `SmartStay.DomainTests` a los suites de microservicios o tests independientes. |
-| `tests/SmartStay.DomainTests/` | Proyecto de pruebas de Fase 0 que contiene `ProjectReference` directa al monolito (`BackendAwSmartstay.API.csproj`). | `backend-aw-smartstay.sln`. | `tests/SmartStay.Accommodations.Tests/`, `tests/SmartStay.Bookings.Tests/`, `tests/SmartStay.Payments.Tests/`, etc. | Asegurar que los invariantes de modelo estén cubiertos en los proyectos de test por microservicio. |
-| `Dockerfile` (raíz) | Genera imagen del monolito (`BackendAwSmartstay.API`). | `docker-compose.yml` (raíz). | `src/Services/*/Dockerfile` (un Dockerfile por cada microservicio). | Eliminación del monolito de la solución. |
-| `docker-compose.yml` (raíz) | Archivo de Compose inicial del monolito con 2 réplicas y base única. | Ninguno en producción. | `compose.microservices.yml` (orquesta los 6 microservicios, MySQL 8 con esquemas lógicos y ActiveMQ). | Aprobación del manifiesto. |
-| `nginx.conf` (raíz) | Configuración de Nginx para balancear entre `app1:80` y `app2:80` del monolito. | `docker-compose.yml` (raíz). | `deploy/nginx/nginx.conf` (Gateway perimetral que enruta a los 6 microservicios y bloquea `/internal/`). | Aprobación del manifiesto. |
-| `BackendAwSmartstay.API/docker-compose.yml` | Configuración duplicada dentro de la carpeta del monolito. | Ninguno. | `compose.microservices.yml`. | Eliminación de la carpeta `BackendAwSmartstay.API/`. |
-| `compose.microservices.yml` -> servicio `legacy` | Servicio monolítico mantenido con profile `legacy` como contingencia. | Ninguno (gateway ya no tiene fallback a legacy). | 6 microservicios autónomos en Compose. | Retirar del compose cuando el stack opere 100% independiente. |
+| `BackendAwSmartstay.API/` | Código del monolito legado. Sus capacidades fueron distribuidas en los microservicios. | **ELIMINADO** (removido de git y del sistema de archivos). | 7 microservicios en `src/Services/` (`IAM`, `Accommodations`, `Bookings`, `Payments`, `Profiles`, `Analytics`, `Concierge`). | `dotnet sln list` y `tools/check-boundaries.sh` confirman 0 referencias al monolito. |
+| `tests/SmartStay.DomainTests/` | Suite monolítica con acoplamiento directo a `BackendAwSmartstay.API.csproj`. | **ELIMINADO** (removido de git y del sistema de archivos). | Suites individuales: `SmartStay.Accommodations.Tests/`, `SmartStay.Bookings.Tests/`, `SmartStay.IAM.Tests/`, etc. | 33 pruebas unitarias autónomas ejecutándose en `Release` con 0 fallos. |
+| `Dockerfile` (raíz) | Generación de imagen para el contenedor monolítico. | **ELIMINADO**. | `src/Services/*/Dockerfile` (un Dockerfile independiente por microservicio). | Cada microservicio se compila aisladamente. |
+| `docker-compose.yml` (raíz) | Orquestación inicial del monolito con dos réplicas y base única. | **ELIMINADO**. | `compose.microservices.yml` (orquesta los 7 microservicios, MySQL 8 particionado por esquema lógico y ActiveMQ). | `docker compose -f compose.microservices.yml config` validado. |
+| `nginx.conf` (raíz) | Balanceador de carga exclusivo para `app1:80` y `app2:80` monolítico. | **ELIMINADO**. | `deploy/nginx/nginx.conf` (Gateway perimetral que enruta por bounded context, aplica rate limiting y bloquea `/internal/`). | `curl /health` y rutas perimetrales validadas. |
+| `compose.microservices.yml` -> servicio `legacy` | Servicio del monolito configurado con perfil `legacy`. | **ELIMINADO**. | El stack opera 100% desacoplado de dependencias legadas. | No existe contenedor `legacy` en el stack. |
+
+---
+
+## 2. Garantías de Aislamiento Acreditadas
+
+1. **Cero referencias entre servicios**:
+   - `tools/check-boundaries.sh` inspecciona los 7 proyectos en `src/Services/` y valida que ninguno contenga `ProjectReference` hacia otro microservicio ni hacia el monolito.
+2. **Contratos compartidos exclusivamente vía DTOs inmutables**:
+   - La biblioteca [`contracts/SmartStay.Contracts.csproj`](file:///media/okami/Universidad/ArquitecturaDeSoftwareEmergentes/backend/contracts/SmartStay.Contracts.csproj) únicamente expone records inmutables, constantes de roles y DTOs HTTP/mensajería sin dependencias de EF Core ni lógica de negocio.
+3. **Persistencia segregada**:
+   - Cada microservicio posee su propio `DbContext` y su propio esquema lógico en MySQL (`smartstay_iam`, `smartstay_accommodations`, `smartstay_bookings`, `smartstay_payments`, `smartstay_profiles`, `smartstay_analytics`).

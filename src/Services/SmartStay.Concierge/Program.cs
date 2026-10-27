@@ -1,3 +1,5 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartStay.Concierge.Application;
 using SmartStay.Concierge.Application.Ports;
 using SmartStay.Concierge.Infrastructure.DeepSeek;
@@ -23,6 +25,19 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
+// Rate Limiting (5-10 requests per minute per IP / client)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("concierge-policy", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
     });
 });
 
@@ -62,11 +77,12 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors("AllowAll");
+app.UseRateLimiter();
 
 // Middleware de verificación de identidad
 app.UseMiddleware<ConciergeAuthenticationMiddleware>();
 
-app.MapControllers();
+app.MapControllers().RequireRateLimiting("concierge-policy");
 app.MapHealthChecks("/health");
 
 app.Run();

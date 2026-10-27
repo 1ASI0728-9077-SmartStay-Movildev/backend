@@ -67,6 +67,7 @@ public class RoomsController(
             return NotFound(new { message = $"No virtual 360 tour available for room {roomId}." });
         }
 
+        var basePath = room.TourPath.TrimEnd('/');
         var manifest = new RoomTourManifest(
             RoomId: room.Id,
             StartNodeId: "entry",
@@ -74,7 +75,7 @@ public class RoomsController(
             {
                 new TourNode(
                     Id: "entry",
-                    Panorama: "/tours/room-102/entry.jpg",
+                    Panorama: $"{basePath}/entry.jpg",
                     Name: "Entrada",
                     Links: new List<TourLink>
                     {
@@ -83,7 +84,7 @@ public class RoomsController(
                 ),
                 new TourNode(
                     Id: "window",
-                    Panorama: "/tours/room-102/window.jpg",
+                    Panorama: $"{basePath}/window.jpg",
                     Name: "Ventana y Balcón",
                     Links: new List<TourLink>
                     {

@@ -11,7 +11,7 @@ interface NearbyTransportListener {
     fun onDeviceDiscovered(endpointId: String, deviceName: String)
     fun onConnectionInitiated(endpointId: String, authDigits: String)
     fun onConnected(endpointId: String)
-    fun onCardReceived(card: ShareRoomCard)
+    fun onCardReceived(endpointId: String, card: ShareRoomCard)
     fun onAckReceived(ack: ShareRoomAck)
     fun onDisconnected(endpointId: String)
     fun onError(message: String)
@@ -19,6 +19,7 @@ interface NearbyTransportListener {
 
 /**
  * Adaptador de bajo nivel para Google Nearby Connections usando estrategia P2P_POINT_TO_POINT (1:1).
+ * Implementa validación estricta de tamaño en entrada (<4 KB), reenvío de ACK a duplicados y desacople de confirmación.
  */
 class NearbyRoomTransport(
     private val context: Context,
@@ -33,6 +34,13 @@ class NearbyRoomTransport(
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
             if (payload.type != Payload.Type.BYTES) return
             val bytes = payload.asBytes() ?: return
+
+            // Validación estricta de tamaño en recepción (<= 4 KB)
+            if (bytes.size > 4096) {
+                listener.onError("Payload recibido excede el límite máximo seguro de 4 KB (${bytes.size} bytes).")
+                return
+            }
+
             val jsonStr = String(bytes, Charsets.UTF_8)
 
             try {
@@ -42,7 +50,8 @@ class NearbyRoomTransport(
                 if (type == "room-card") {
                     val messageId = json.getString("messageId")
                     if (receivedMessageIds.contains(messageId)) {
-                        // Deduplicar mensaje ya procesado
+                        // Mensaje duplicado: reenviar ACK para desbloquear al emisor si el primer ACK se perdió en tránsito
+                        sendAck(endpointId, messageId)
                         return
                     }
                     receivedMessageIds.add(messageId)
@@ -60,10 +69,8 @@ class NearbyRoomTransport(
                         hasTour = json.optBoolean("hasTour", false)
                     )
 
-                    listener.onCardReceived(card)
-
-                    // Enviar ACK bilateral de aplicación
-                    sendAck(endpointId, messageId)
+                    // Entregar al listener. El ACK de aplicación lo emitirá el caso de uso tras validar esquema.
+                    listener.onCardReceived(endpointId, card)
                 } else if (type == "room-card-ack") {
                     val ack = ShareRoomAck(
                         version = json.getInt("version"),
@@ -152,7 +159,7 @@ class NearbyRoomTransport(
             .addOnFailureListener { listener.onError("Fallo al enviar payload: ${it.message}") }
     }
 
-    private fun sendAck(endpointId: String, originalMessageId: String) {
+    fun sendAck(endpointId: String, originalMessageId: String) {
         val json = JSONObject().apply {
             put("version", 1)
             put("type", "room-card-ack")

@@ -37,11 +37,18 @@ const loading = ref(true);
 const errorMessage = ref<string | null>(null);
 let viewer: Viewer | undefined;
 
-onMounted(async () => {
+async function loadTour() {
   if (!host.value) return;
 
   try {
     loading.value = true;
+    errorMessage.value = null;
+
+    if (viewer) {
+      viewer.destroy();
+      viewer = undefined;
+    }
+
     const response = await fetch(`/api/v1/rooms/${props.roomId}/tour`);
     if (!response.ok) {
       throw new Error(`El recorrido virtual no está disponible para esta habitación (HTTP ${response.status}).`);
@@ -62,19 +69,33 @@ onMounted(async () => {
     viewer = new Viewer({
       container: host.value,
       plugins: [
-        VirtualTourPlugin.withConfig({
+        [VirtualTourPlugin, {
           positionMode: 'manual',
           renderMode: '3d',
           startNodeId: manifest.startNodeId,
           nodes: formattedNodes
-        })
+        }]
       ]
     });
+
+    // Capturar fallos asíncronos de renderizado y carga de texturas panorámicas
+    viewer.addEventListener('panorama-load-error', (e: any) => {
+      errorMessage.value = 'Fallo al descargar o renderizar la textura panorámica equirectangular.';
+      loading.value = false;
+    });
+
+    viewer.addEventListener('ready', () => {
+      loading.value = false;
+    });
+
   } catch (err: any) {
-    errorMessage.value = err.message || 'No se pudo cargar el recorrido 360°.';
-  } finally {
+    errorMessage.value = err.message || 'No se pudo inicializar el recorrido 360°.';
     loading.value = false;
   }
+}
+
+onMounted(() => {
+  loadTour();
 });
 
 onBeforeUnmount(() => {
@@ -97,7 +118,10 @@ onBeforeUnmount(() => {
 
     <div v-else-if="errorMessage" class="status-overlay error">
       <p>{{ errorMessage }}</p>
-      <button @click="emit('close')">Volver a fotos estándar</button>
+      <div class="error-actions">
+        <button class="retry-btn" @click="loadTour">Reintentar</button>
+        <button class="secondary-btn" @click="emit('close')">Volver a fotos estándar</button>
+      </div>
     </div>
 
     <div ref="host" class="viewer-host"></div>
@@ -108,10 +132,11 @@ onBeforeUnmount(() => {
 .tour-container {
   position: relative;
   width: 100%;
-  height: 480px;
-  background-color: #1a1a1a;
-  border-radius: 8px;
+  height: 550px;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  background: #111;
 }
 
 .tour-header {
@@ -119,10 +144,11 @@ onBeforeUnmount(() => {
   top: 12px;
   left: 12px;
   right: 12px;
-  z-index: 10;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  z-index: 10;
+  pointer-events: none;
 }
 
 .badge {
@@ -130,23 +156,25 @@ onBeforeUnmount(() => {
   color: #fff;
   padding: 6px 12px;
   border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
+  pointer-events: auto;
 }
 
 .close-btn {
   background: rgba(0, 0, 0, 0.7);
   color: #fff;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   padding: 6px 14px;
   border-radius: 20px;
+  font-size: 0.9rem;
   cursor: pointer;
-  font-size: 13px;
+  pointer-events: auto;
   transition: background 0.2s;
 }
 
 .close-btn:hover {
-  background: rgba(231, 76, 60, 0.9);
+  background: rgba(220, 38, 38, 0.8);
 }
 
 .viewer-host {
@@ -161,22 +189,57 @@ onBeforeUnmount(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  background: rgba(18, 18, 18, 0.85);
   color: #fff;
-  background: rgba(0, 0, 0, 0.85);
   z-index: 5;
+  gap: 16px;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 4px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #3498db;
+  border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 12px;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status-overlay.error {
+  color: #f87171;
+  text-align: center;
+  padding: 24px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.retry-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  background: #1d4ed8;
+}
+
+.secondary-btn {
+  background: #374151;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 </style>

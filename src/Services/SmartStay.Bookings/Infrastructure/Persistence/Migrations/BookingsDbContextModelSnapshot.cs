@@ -39,6 +39,11 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime(6)")
                         .HasColumnName("check_out_date");
 
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("concurrency_token");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("created_at_utc");

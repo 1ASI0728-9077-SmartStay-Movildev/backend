@@ -7,5 +7,5 @@ namespace SmartStay.Concierge.Application.Ports;
 /// </summary>
 public interface ILodgingSearch
 {
-    Task<IReadOnlyList<RoomOffer>> FindAsync(StayPreferences request, CancellationToken ct = default);
+    Task<LodgingSearchResult> SearchAsync(StayPreferences request, CancellationToken ct = default);
 }

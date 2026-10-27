@@ -12,6 +12,7 @@ public enum BookingStatus
 
 /// <summary>
 /// Agregado raíz de Reservas. Autoridad exclusiva sobre disponibilidad temporal de habitaciones.
+/// Protegido contra carreras y estados inconsistentes mediante ConcurrencyToken.
 /// </summary>
 public class Booking
 {
@@ -24,6 +25,7 @@ public class Booking
         Currency = "USD";
         Status = BookingStatus.PendingPayment;
         CreatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public Booking(
@@ -51,6 +53,7 @@ public class Booking
         Currency = currency;
         Status = BookingStatus.PendingPayment;
         ExpiresAtUtc = DateTime.UtcNow.AddMinutes(ttlMinutes);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public int Id { get; private set; }
@@ -67,6 +70,7 @@ public class Booking
     public BookingStatus Status { get; private set; }
     public DateTime? ExpiresAtUtc { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
+    public Guid ConcurrencyToken { get; private set; }
 
     public IReadOnlyCollection<RoomNightLock> NightLocks => _nightLocks.AsReadOnly();
 
@@ -83,15 +87,30 @@ public class Booking
         _nightLocks.Clear();
     }
 
+    /// <summary>
+    /// Confirma la reserva verificando estrictamente la vigencia del TTL antes de fijar el estado.
+    /// </summary>
     public void Confirm()
     {
         if (Status != BookingStatus.PendingPayment)
             throw new InvalidOperationException($"Cannot confirm booking from status '{Status}'.");
 
+        if (ExpiresAtUtc.HasValue && ExpiresAtUtc.Value <= DateTime.UtcNow)
+        {
+            Status = BookingStatus.Expired;
+            ClearNightLocks();
+            ConcurrencyToken = Guid.NewGuid();
+            throw new InvalidOperationException("Cannot confirm booking because the hold TTL has already expired.");
+        }
+
         Status = BookingStatus.Confirmed;
         ExpiresAtUtc = null;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
+    /// <summary>
+    /// Cancela la reserva y libera los bloqueos físicos de noche.
+    /// </summary>
     public void Cancel()
     {
         if (Status == BookingStatus.Cancelled)
@@ -100,8 +119,12 @@ public class Booking
         Status = BookingStatus.Cancelled;
         ExpiresAtUtc = null;
         ClearNightLocks();
+        ConcurrencyToken = Guid.NewGuid();
     }
 
+    /// <summary>
+    /// Expira una reserva en estado pendiente de pago cuyo TTL ha vencido y libera inventario.
+    /// </summary>
     public void Expire()
     {
         if (Status != BookingStatus.PendingPayment)
@@ -109,5 +132,6 @@ public class Booking
 
         Status = BookingStatus.Expired;
         ClearNightLocks();
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
