@@ -135,4 +135,28 @@ public class AccommodationsDomainAndBoundaryTests
         room.HotelId.Should().Be(1);
         room.Amenities.Should().Contain("Wifi");
     }
+
+    [Fact]
+    [Trait("Service", "Accommodations")]
+    [Trait("Category", "DomainInvariants")]
+    public void Room_supports_capacity_currency_and_tour_path()
+    {
+        var command = new CreateRoomCommand(
+            HotelId: 1,
+            RoomTypeId: 2,
+            Price: 150.00m,
+            Description: "Double deluxe room",
+            Amenities: ["Wifi", "Minibar"],
+            Capacity: 2,
+            Currency: "USD",
+            IsBookable: true,
+            TourPath: "/tours/room-102/manifest.json"
+        );
+        var room = new Room(command);
+
+        room.Capacity.Should().Be(2);
+        room.Currency.Should().Be("USD");
+        room.IsBookable.Should().BeTrue();
+        room.TourPath.Should().Be("/tours/room-102/manifest.json");
+    }
 }

@@ -42,6 +42,36 @@ public class RoomQueryService(IRoomRepository roomRepository)
         /// <returns>A filtered collection of <see cref="Room"/> that match the requested type.</returns>
         var rooms = await roomRepository.ListAsync();
         return rooms.Where(r => r.RoomTypeId == query.RoomTypeId);
+    }
+
+    public async Task<IEnumerable<Room>> SearchRoomsAsync(string? district, int? guests, decimal? minPrice, decimal? maxPrice)
+    {
+        var rooms = await roomRepository.ListAsync();
+        var result = rooms.Where(r => r.IsBookable);
+
+        if (!string.IsNullOrWhiteSpace(district))
+        {
+            result = result.Where(r => r.Hotel != null &&
+                (!string.IsNullOrWhiteSpace(r.Hotel.District) && r.Hotel.District.Contains(district, StringComparison.OrdinalIgnoreCase) ||
+                 !string.IsNullOrWhiteSpace(r.Hotel.City) && r.Hotel.City.Contains(district, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (guests.HasValue && guests.Value > 0)
+        {
+            result = result.Where(r => r.Capacity >= guests.Value);
+        }
+
+        if (minPrice.HasValue)
+        {
+            result = result.Where(r => r.Price >= minPrice.Value);
+        }
+
+        if (maxPrice.HasValue)
+        {
+            result = result.Where(r => r.Price <= maxPrice.Value);
+        }
+
+        return result.OrderBy(r => r.Price).ThenBy(r => r.Id).ToList();
     }        
 
  

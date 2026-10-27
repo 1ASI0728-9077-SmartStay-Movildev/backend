@@ -260,5 +260,175 @@ DELIMITER ;
 CALL MigrationsScript();
 DROP PROCEDURE MigrationsScript;
 
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    ALTER TABLE `rooms` ADD `capacity` int NOT NULL DEFAULT 2;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    ALTER TABLE `rooms` ADD `currency` varchar(3) CHARACTER SET utf8mb4 NOT NULL DEFAULT 'USD';
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    ALTER TABLE `rooms` ADD `is_bookable` tinyint(1) NOT NULL DEFAULT TRUE;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    ALTER TABLE `rooms` ADD `tour_path` varchar(500) CHARACTER SET utf8mb4 NULL;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    ALTER TABLE `hotels` ADD `district` varchar(100) CHARACTER SET utf8mb4 NOT NULL DEFAULT '';
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    UPDATE `hotels` SET `district` = 'Cercado de Lima'
+    WHERE `id` = 1;
+    SELECT ROW_COUNT();
+
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    UPDATE `hotels` SET `district` = 'San Blas'
+    WHERE `id` = 2;
+    SELECT ROW_COUNT();
+
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    UPDATE `rooms` SET `capacity` = 1, `currency` = 'USD', `description` = 'Room 101 - Standard cozy single room.', `is_bookable` = TRUE, `tour_path` = NULL
+    WHERE `id` = 101;
+    SELECT ROW_COUNT();
+
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    UPDATE `rooms` SET `capacity` = 2, `currency` = 'USD', `description` = 'Room 102 - Plaza view deluxe room with 360 virtual tour.', `is_bookable` = TRUE, `tour_path` = '/tours/room-102/manifest.json'
+    WHERE `id` = 102;
+    SELECT ROW_COUNT();
+
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    UPDATE `rooms` SET `capacity` = 4, `currency` = 'USD', `description` = 'Suite 201 - Panoramic mountain view presidential suite.', `is_bookable` = TRUE, `tour_path` = NULL
+    WHERE `id` = 201;
+    SELECT ROW_COUNT();
+
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261027162513_AddRoomMvpAttributes') THEN
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20261027162513_AddRoomMvpAttributes', '9.0.10');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
 COMMIT;
 

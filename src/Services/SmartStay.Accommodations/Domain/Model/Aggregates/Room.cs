@@ -15,6 +15,9 @@ public partial class Room
     {
         Description = string.Empty;
         Amenities = new List<string>();
+        Currency = "USD";
+        Capacity = 2;
+        IsBookable = true;
     }
 
     /// <summary>
@@ -24,12 +27,14 @@ public partial class Room
     public Room(CreateRoomCommand command) : this()
     {
         RoomTypeId = command.RoomTypeId;
-        // NUEVOS CAMPOS
         HotelId = command.HotelId;
         Price = command.Price;
-        // -------------
         Description = command.Description;
         Amenities = command.Amenities;
+        Capacity = command.Capacity;
+        Currency = string.IsNullOrWhiteSpace(command.Currency) ? "USD" : command.Currency;
+        IsBookable = command.IsBookable;
+        TourPath = command.TourPath;
     }
     
     /// <summary>
@@ -71,6 +76,26 @@ public partial class Room
     /// </summary>
     public decimal Price { get; private set; } // Precio por noche
     // -------------
+    
+    /// <summary>
+    /// Guest capacity of the room.
+    /// </summary>
+    public int Capacity { get; private set; }
+
+    /// <summary>
+    /// ISO Currency code for pricing (e.g. USD).
+    /// </summary>
+    public string Currency { get; private set; }
+
+    /// <summary>
+    /// Whether the room is currently bookable in the catalog.
+    /// </summary>
+    public bool IsBookable { get; private set; }
+
+    /// <summary>
+    /// Path or URL to the 360 virtual tour manifest, if available.
+    /// </summary>
+    public string? TourPath { get; private set; }
     
     /// <summary>
     /// A description of the room.

@@ -5,7 +5,8 @@ public record CreateBookingCommand(
     string GuestName,
     string GuestEmail,
     DateTime CheckInDate,
-    DateTime CheckOutDate
+    DateTime CheckOutDate,
+    int GuestUserId = 0
 );
 
 public record ConfirmBookingCommand(int BookingId);

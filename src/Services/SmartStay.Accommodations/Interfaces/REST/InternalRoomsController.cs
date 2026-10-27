@@ -24,9 +24,9 @@ public class InternalRoomsController(IRoomQueryService roomQueryService) : Contr
         var snapshot = new RoomSnapshot(
             RoomId: room.Id,
             HotelId: room.HotelId,
-            IsBookable: true,
+            IsBookable: room.IsBookable,
             NightlyPrice: room.Price,
-            Currency: "USD"
+            Currency: room.Currency
         );
 
         return Ok(snapshot);

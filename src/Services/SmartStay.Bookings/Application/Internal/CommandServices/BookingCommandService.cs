@@ -68,7 +68,9 @@ public class BookingCommandService(
                 command.CheckOutDate,
                 roomSnapshot.NightlyPrice,
                 totalAmount,
-                roomSnapshot.Currency
+                roomSnapshot.Currency,
+                15,
+                command.GuestUserId
             );
 
             await bookingRepository.AddAsync(booking);
@@ -136,5 +138,34 @@ public class BookingCommandService(
             logger.LogError(ex, "Error cancelling booking #{BookingId}.", command.BookingId);
             throw;
         }
+    }
+
+    public async Task<int> ExpirePendingBookingsAsync()
+    {
+        var expiredBookings = await bookingRepository.GetExpiredPendingBookingsAsync();
+        if (expiredBookings.Count == 0) return 0;
+
+        var count = 0;
+        foreach (var booking in expiredBookings)
+        {
+            await using var tx = await unitOfWork.BeginTransactionAsync();
+            try
+            {
+                booking.Expire();
+                await bookingRepository.RemoveLocksByBookingIdAsync(booking.Id);
+                bookingRepository.Update(booking);
+                await unitOfWork.CompleteAsync();
+                await tx.CommitAsync();
+                count++;
+                logger.LogInformation("Booking #{BookingId} expired and night locks released.", booking.Id);
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                logger.LogWarning(ex, "Failed to expire booking #{BookingId}.", booking.Id);
+            }
+        }
+
+        return count;
     }
 }

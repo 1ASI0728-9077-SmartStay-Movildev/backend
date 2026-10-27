@@ -50,4 +50,20 @@ public class BookingLifecycleTests
         booking.Status.Should().Be(BookingStatus.Cancelled);
         booking.NightLocks.Should().BeEmpty();
     }
+
+    [Fact]
+    [Trait("Service", "Bookings")]
+    [Trait("Category", "Lifecycle")]
+    public void Expire_should_transition_status_to_expired_and_clear_locks()
+    {
+        var checkIn = DateTime.UtcNow.Date.AddDays(1);
+        var checkOut = checkIn.AddDays(2);
+        var booking = new Booking(101, 1, "Carlos Santana", "carlos@example.com", checkIn, checkOut, 150.00m, 150.00m, "USD", ttlMinutes: 15, guestUserId: 42);
+
+        booking.GuestUserId.Should().Be(42);
+        booking.Expire();
+
+        booking.Status.Should().Be(BookingStatus.Expired);
+        booking.NightLocks.Should().BeEmpty();
+    }
 }

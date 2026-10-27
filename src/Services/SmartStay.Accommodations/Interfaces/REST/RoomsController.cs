@@ -4,9 +4,11 @@ using BackendAwSmartstay.API.Accommodations.Domain.Model.Queries;
 using BackendAwSmartstay.API.Accommodations.Domain.Services;
 using BackendAwSmartstay.API.Accommodations.Interfaces.REST.Resources;
 using BackendAwSmartstay.API.Accommodations.Interfaces.REST.Transform;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartStay.Accommodations.Infrastructure.Security;
 using SmartStay.Contracts.Constants;
+using SmartStay.Contracts.Http;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace SmartStay.Accommodations.Interfaces.REST;
@@ -23,6 +25,77 @@ public class RoomsController(
     IRoomCommandService roomCommandService,
     IRoomQueryService roomQueryService) : ControllerBase
 {
+    [HttpGet("search")]
+    [AllowAnonymous]
+    [SwaggerOperation(Summary = "Search rooms by district, guests capacity and budget", OperationId = "SearchRooms")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Rooms matching the criteria.", typeof(IEnumerable<RoomSearchResult>))]
+    public async Task<IActionResult> SearchRooms(
+        [FromQuery] string? district = null,
+        [FromQuery] int? guests = null,
+        [FromQuery] decimal? minPrice = null,
+        [FromQuery] decimal? maxPrice = null)
+    {
+        var rooms = await roomQueryService.SearchRoomsAsync(district, guests, minPrice, maxPrice);
+        var response = rooms.Select(r => new RoomSearchResult(
+            RoomId: r.Id,
+            HotelId: r.HotelId,
+            HotelName: r.Hotel?.Name ?? "SmartStay Hotel",
+            District: r.Hotel?.District ?? r.Hotel?.City ?? "Lima",
+            City: r.Hotel?.City ?? "Lima",
+            RoomTypeName: r.RoomType?.Name ?? "Standard Room",
+            NightlyPrice: r.Price,
+            Currency: r.Currency,
+            Capacity: r.Capacity,
+            IsBookable: r.IsBookable,
+            TourPath: r.TourPath,
+            Amenities: r.Amenities ?? []
+        ));
+
+        return Ok(response);
+    }
+
+    [HttpGet("{roomId:int}/tour")]
+    [AllowAnonymous]
+    [SwaggerOperation(Summary = "Get 360 degree virtual tour manifest for a room", OperationId = "GetRoomTour")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Virtual tour manifest.", typeof(RoomTourManifest))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "No virtual tour available for this room.")]
+    public async Task<IActionResult> GetRoomTour(int roomId)
+    {
+        var room = await roomQueryService.Handle(new GetRoomByIdQuery(roomId));
+        if (room is null || string.IsNullOrWhiteSpace(room.TourPath))
+        {
+            return NotFound(new { message = $"No virtual 360 tour available for room {roomId}." });
+        }
+
+        var manifest = new RoomTourManifest(
+            RoomId: room.Id,
+            StartNodeId: "entry",
+            Nodes: new List<TourNode>
+            {
+                new TourNode(
+                    Id: "entry",
+                    Panorama: "/tours/room-102/entry.jpg",
+                    Name: "Entrada",
+                    Links: new List<TourLink>
+                    {
+                        new TourLink("window", 0.0, 0.0)
+                    }
+                ),
+                new TourNode(
+                    Id: "window",
+                    Panorama: "/tours/room-102/window.jpg",
+                    Name: "Ventana y Balcón",
+                    Links: new List<TourLink>
+                    {
+                        new TourLink("entry", Math.PI, 0.0)
+                    }
+                )
+            }
+        );
+
+        return Ok(manifest);
+    }
+
     [HttpGet("{roomId:int}")]
     [AccommodationsAuthorize(UserRoles.Guest, UserRoles.Admin, UserRoles.ChainAdmin)]
     [SwaggerOperation(Summary = "Get room by its unique identifier", OperationId = "GetRoomById")]

@@ -21,5 +21,6 @@ public record CreateHotelCommand(
     string ImageUrl,
     string Description,
     string Type,
-    List<string> Amenities
+    List<string> Amenities,
+    string District = ""
 );

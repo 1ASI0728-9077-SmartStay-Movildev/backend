@@ -35,6 +35,15 @@ public class BookingRepository(BookingsDbContext context) : IBookingRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Booking>> ListByGuestUserIdAsync(int guestUserId)
+    {
+        return await context.Bookings
+            .Include(b => b.NightLocks)
+            .Where(b => b.GuestUserId == guestUserId)
+            .OrderByDescending(b => b.CreatedAtUtc)
+            .ToListAsync();
+    }
+
     public void Update(Booking booking)
     {
         context.Bookings.Update(booking);
@@ -54,5 +63,23 @@ public class BookingRepository(BookingsDbContext context) : IBookingRepository
     public async Task<bool> HasConflictAsync(int roomId, DateOnly stayDate)
     {
         return await context.RoomNightLocks.AnyAsync(l => l.RoomId == roomId && l.StayDate == stayDate);
+    }
+
+    public async Task<List<int>> GetLockedRoomIdsAsync(DateOnly checkIn, DateOnly checkOut, int[] roomIds)
+    {
+        return await context.RoomNightLocks
+            .Where(l => roomIds.Contains(l.RoomId) && l.StayDate >= checkIn && l.StayDate < checkOut)
+            .Select(l => l.RoomId)
+            .Distinct()
+            .ToListAsync();
+    }
+
+    public async Task<List<Booking>> GetExpiredPendingBookingsAsync()
+    {
+        var now = DateTime.UtcNow;
+        return await context.Bookings
+            .Include(b => b.NightLocks)
+            .Where(b => b.Status == BookingStatus.PendingPayment && b.ExpiresAtUtc != null && b.ExpiresAtUtc <= now)
+            .ToListAsync();
     }
 }

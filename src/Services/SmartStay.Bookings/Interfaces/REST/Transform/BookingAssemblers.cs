@@ -22,14 +22,15 @@ public static class BookingAssemblers
         );
     }
 
-    public static CreateBookingCommand ToCommand(CreateBookingResource resource)
+    public static CreateBookingCommand ToCommand(CreateBookingResource resource, int guestUserId = 0)
     {
         return new CreateBookingCommand(
             resource.RoomId,
             resource.GuestName,
             resource.GuestEmail,
             resource.CheckInDate,
-            resource.CheckOutDate
+            resource.CheckOutDate,
+            guestUserId
         );
     }
 }

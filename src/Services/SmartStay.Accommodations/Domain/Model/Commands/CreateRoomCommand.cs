@@ -14,5 +14,9 @@ public record CreateRoomCommand(
     int RoomTypeId, 
     decimal Price, 
     string Description, 
-    List<string> Amenities
+    List<string> Amenities,
+    int Capacity = 2,
+    string Currency = "USD",
+    bool IsBookable = true,
+    string? TourPath = null
 );

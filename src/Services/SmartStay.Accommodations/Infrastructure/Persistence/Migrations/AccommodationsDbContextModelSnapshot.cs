@@ -59,6 +59,12 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(1000)")
                         .HasColumnName("description");
 
+                    b.Property<string>("District")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("district");
+
                     b.Property<int>("HostId")
                         .HasColumnType("int")
                         .HasColumnName("host_id");
@@ -93,6 +99,7 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                             City = "Lima",
                             Country = "Peru",
                             Description = "Historic hotel in the center of Lima.",
+                            District = "Cercado de Lima",
                             HostId = 1,
                             ImageUrl = "https://placehold.co/600x400/3498DB/FFFFFF?text=Bolivar",
                             Name = "Grand Hotel Bolivar",
@@ -106,6 +113,7 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                             City = "Cusco",
                             Country = "Peru",
                             Description = "Experience the mystic energy of the Andes.",
+                            District = "San Blas",
                             HostId = 1,
                             ImageUrl = "https://placehold.co/600x400/E67E22/FFFFFF?text=Andean",
                             Name = "Cusco Andean Lodge",
@@ -127,6 +135,20 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         .HasColumnType("json")
                         .HasColumnName("amenities");
 
+                    b.Property<int>("Capacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2)
+                        .HasColumnName("capacity");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("varchar(3)")
+                        .HasDefaultValue("USD")
+                        .HasColumnName("currency");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -137,6 +159,12 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("hotel_id");
 
+                    b.Property<bool>("IsBookable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_bookable");
+
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("price");
@@ -144,6 +172,11 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                     b.Property<int>("RoomTypeId")
                         .HasColumnType("int")
                         .HasColumnName("room_type_id");
+
+                    b.Property<string>("TourPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("tour_path");
 
                     b.HasKey("Id")
                         .HasName("pk_rooms");
@@ -161,8 +194,11 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         {
                             Id = 101,
                             Amenities = "[\"Wifi\",\"TV\"]",
-                            Description = "Room 101 - Standard view.",
+                            Capacity = 1,
+                            Currency = "USD",
+                            Description = "Room 101 - Standard cozy single room.",
                             HotelId = 1,
+                            IsBookable = true,
                             Price = 85.00m,
                             RoomTypeId = 1
                         },
@@ -170,17 +206,24 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         {
                             Id = 102,
                             Amenities = "[\"Wifi\",\"TV\",\"Minibar\"]",
-                            Description = "Room 102 - Plaza view with balcony.",
+                            Capacity = 2,
+                            Currency = "USD",
+                            Description = "Room 102 - Plaza view deluxe room with 360 virtual tour.",
                             HotelId = 1,
+                            IsBookable = true,
                             Price = 150.00m,
-                            RoomTypeId = 2
+                            RoomTypeId = 2,
+                            TourPath = "/tours/room-102/manifest.json"
                         },
                         new
                         {
                             Id = 201,
                             Amenities = "[\"Jacuzzi\",\"Wifi\",\"Desayuno\",\"Chimenea\"]",
-                            Description = "Suite 201 - Panoramic mountain view.",
+                            Capacity = 4,
+                            Currency = "USD",
+                            Description = "Suite 201 - Panoramic mountain view presidential suite.",
                             HotelId = 2,
+                            IsBookable = true,
                             Price = 320.00m,
                             RoomTypeId = 3
                         });

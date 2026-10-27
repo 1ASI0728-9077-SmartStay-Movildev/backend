@@ -75,6 +75,8 @@ builder.Services.AddHealthChecks();
 
 // Background Consumer Worker para pagos de ActiveMQ
 builder.Services.AddHostedService<SmartStay.Bookings.Infrastructure.Messaging.BookingsPaymentConsumerWorker>();
+// Background Worker para expiración de reservas y liberación de cerrojos
+builder.Services.AddHostedService<SmartStay.Bookings.Infrastructure.Workers.BookingExpirationWorker>();
 
 var app = builder.Build();
 

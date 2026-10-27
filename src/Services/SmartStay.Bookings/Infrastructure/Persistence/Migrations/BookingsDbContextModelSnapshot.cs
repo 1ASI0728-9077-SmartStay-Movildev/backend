@@ -67,6 +67,12 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(100)")
                         .HasColumnName("guest_name");
 
+                    b.Property<int>("GuestUserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("guest_user_id");
+
                     b.Property<int>("HotelId")
                         .HasColumnType("int")
                         .HasColumnName("hotel_id");
@@ -89,6 +95,9 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_bookings");
+
+                    b.HasIndex(new[] { "GuestUserId" }, "ix_bookings_guest_user_id")
+                        .HasDatabaseName("ix_bookings_guest_user_id");
 
                     b.ToTable("bookings", (string)null);
                 });

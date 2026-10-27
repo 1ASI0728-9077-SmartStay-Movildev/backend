@@ -24,8 +24,21 @@ public class BookingsController(
     IBookingCommandService bookingCommandService,
     IBookingQueryService bookingQueryService) : ControllerBase
 {
+    [HttpGet("mine")]
+    [BookingsAuthorize(UserRoles.Guest, UserRoles.Admin, UserRoles.ChainAdmin)]
+    [SwaggerOperation(Summary = "Get bookings of the currently authenticated guest", OperationId = "GetMyBookings")]
+    [SwaggerResponse(StatusCodes.Status200OK, "List of guest bookings", typeof(IEnumerable<BookingResource>))]
+    public async Task<IActionResult> GetMyBookings()
+    {
+        var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
+        if (actor is null || actor.UserId <= 0) return Unauthorized();
+
+        var bookings = await bookingQueryService.GetBookingsByGuestUserIdAsync(actor.UserId);
+        return Ok(bookings.Select(BookingAssemblers.ToResource));
+    }
+
     [HttpGet("{bookingId:int}")]
-    [BookingsAuthorize(UserRoles.Admin, UserRoles.ChainAdmin)]
+    [BookingsAuthorize(UserRoles.Guest, UserRoles.Admin, UserRoles.ChainAdmin)]
     [SwaggerOperation(Summary = "Get booking by its unique identifier", OperationId = "GetBookingById")]
     [SwaggerResponse(StatusCodes.Status200OK, "Booking found", typeof(BookingResource))]
     [SwaggerResponse(StatusCodes.Status404NotFound, "Booking not found")]
@@ -33,6 +46,13 @@ public class BookingsController(
     {
         var booking = await bookingQueryService.Handle(new GetBookingByIdQuery(bookingId));
         if (booking is null) return NotFound();
+
+        var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
+        if (actor != null && !actor.IsHotelAdmin && !actor.IsChainAdmin && booking.GuestUserId > 0 && booking.GuestUserId != actor.UserId)
+        {
+            return Forbid();
+        }
+
         return Ok(BookingAssemblers.ToResource(booking));
     }
 
@@ -46,7 +66,8 @@ public class BookingsController(
     {
         try
         {
-            var command = BookingAssemblers.ToCommand(resource);
+            var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
+            var command = BookingAssemblers.ToCommand(resource, actor?.UserId ?? 0);
             var booking = await bookingCommandService.Handle(command);
             if (booking is null) return BadRequest("Could not create booking. Please verify room existence and dates.");
 
@@ -92,12 +113,22 @@ public class BookingsController(
     }
 
     [HttpPost("{bookingId:int}/cancel")]
-    [BookingsAuthorize(UserRoles.Admin, UserRoles.ChainAdmin)]
+    [BookingsAuthorize(UserRoles.Guest, UserRoles.Admin, UserRoles.ChainAdmin)]
     [SwaggerOperation(Summary = "Cancel reservation", OperationId = "CancelBooking")]
     [SwaggerResponse(StatusCodes.Status200OK, "Booking cancelled", typeof(BookingResource))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Forbidden to cancel another user's reservation")]
     [SwaggerResponse(StatusCodes.Status404NotFound, "Booking not found")]
     public async Task<IActionResult> CancelBooking(int bookingId)
     {
+        var existing = await bookingQueryService.Handle(new GetBookingByIdQuery(bookingId));
+        if (existing is null) return NotFound();
+
+        var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
+        if (actor != null && !actor.IsHotelAdmin && !actor.IsChainAdmin && existing.GuestUserId > 0 && existing.GuestUserId != actor.UserId)
+        {
+            return Forbid();
+        }
+
         var booking = await bookingCommandService.Handle(new CancelBookingCommand(bookingId));
         if (booking is null) return NotFound();
         return Ok(BookingAssemblers.ToResource(booking));

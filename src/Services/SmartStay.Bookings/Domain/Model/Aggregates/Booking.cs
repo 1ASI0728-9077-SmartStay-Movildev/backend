@@ -36,12 +36,14 @@ public class Booking
         decimal nightlyPrice,
         decimal totalAmount,
         string currency = "USD",
-        int ttlMinutes = 15) : this()
+        int ttlMinutes = 15,
+        int guestUserId = 0) : this()
     {
         RoomId = roomId;
         HotelId = hotelId;
         GuestName = guestName;
         GuestEmail = guestEmail;
+        GuestUserId = guestUserId;
         CheckInDate = checkInDate;
         CheckOutDate = checkOutDate;
         NightlyPrice = nightlyPrice;
@@ -54,6 +56,7 @@ public class Booking
     public int Id { get; private set; }
     public int RoomId { get; private set; }
     public int HotelId { get; private set; }
+    public int GuestUserId { get; private set; }
     public string GuestName { get; private set; }
     public string GuestEmail { get; private set; }
     public DateTime CheckInDate { get; private set; }
@@ -105,5 +108,6 @@ public class Booking
             return;
 
         Status = BookingStatus.Expired;
+        ClearNightLocks();
     }
 }

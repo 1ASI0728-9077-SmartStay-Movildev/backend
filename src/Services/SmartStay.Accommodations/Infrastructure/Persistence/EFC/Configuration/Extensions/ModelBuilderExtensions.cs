@@ -76,6 +76,7 @@ public static class ModelBuilderExtensions
         builder.Entity<Hotel>().Property(h => h.Name).IsRequired().HasMaxLength(100);
         builder.Entity<Hotel>().Property(h => h.Address).IsRequired().HasMaxLength(200);
         builder.Entity<Hotel>().Property(h => h.City).IsRequired().HasMaxLength(100);
+        builder.Entity<Hotel>().Property(h => h.District).HasMaxLength(100);
         builder.Entity<Hotel>().Property(h => h.Country).IsRequired().HasMaxLength(100);
         builder.Entity<Hotel>().Property(h => h.Description).HasMaxLength(1000);
         
@@ -90,6 +91,10 @@ public static class ModelBuilderExtensions
         builder.Entity<Room>().HasKey(r => r.Id);
         builder.Entity<Room>().Property(r => r.Id).IsRequired().ValueGeneratedOnAdd();
         builder.Entity<Room>().Property(r => r.Description).IsRequired().HasMaxLength(1000);
+        builder.Entity<Room>().Property(r => r.Capacity).IsRequired().HasDefaultValue(2);
+        builder.Entity<Room>().Property(r => r.Currency).IsRequired().HasMaxLength(3).HasDefaultValue("USD");
+        builder.Entity<Room>().Property(r => r.IsBookable).IsRequired().HasDefaultValue(true);
+        builder.Entity<Room>().Property(r => r.TourPath).HasMaxLength(500);
         
         // Monetary value configuration (Precision, Scale)
         builder.Entity<Room>().Property(r => r.Price)
@@ -129,10 +134,11 @@ public static class ModelBuilderExtensions
         builder.Entity<Hotel>().HasData(
             new {
                 Id = 1,
-                HostId = 1, // Assigned to first staff user
+                HostId = 1,
                 Name = "Grand Hotel Bolivar",
                 Address = "Jr. de la Unión 958",
                 City = "Lima",
+                District = "Cercado de Lima",
                 Country = "Peru",
                 Description = "Historic hotel in the center of Lima.",
                 ImageUrl = "https://placehold.co/600x400/3498DB/FFFFFF?text=Bolivar",
@@ -145,6 +151,7 @@ public static class ModelBuilderExtensions
                 Name = "Cusco Andean Lodge",
                 Address = "San Blas 123",
                 City = "Cusco",
+                District = "San Blas",
                 Country = "Peru",
                 Description = "Experience the mystic energy of the Andes.",
                 ImageUrl = "https://placehold.co/600x400/E67E22/FFFFFF?text=Andean",
@@ -161,7 +168,11 @@ public static class ModelBuilderExtensions
                 HotelId = 1,
                 RoomTypeId = 1,
                 Price = 85.00m,
-                Description = "Room 101 - Standard view.",
+                Capacity = 1,
+                Currency = "USD",
+                IsBookable = true,
+                TourPath = (string?)null,
+                Description = "Room 101 - Standard cozy single room.",
                 Amenities = new List<string> { "Wifi", "TV" }
             },
             new {
@@ -169,7 +180,11 @@ public static class ModelBuilderExtensions
                 HotelId = 1,
                 RoomTypeId = 2,
                 Price = 150.00m,
-                Description = "Room 102 - Plaza view with balcony.",
+                Capacity = 2,
+                Currency = "USD",
+                IsBookable = true,
+                TourPath = (string?)"/tours/room-102/manifest.json",
+                Description = "Room 102 - Plaza view deluxe room with 360 virtual tour.",
                 Amenities = new List<string> { "Wifi", "TV", "Minibar" }
             },
             // Rooms for Hotel 2 (Cusco)
@@ -178,7 +193,11 @@ public static class ModelBuilderExtensions
                 HotelId = 2,
                 RoomTypeId = 3,
                 Price = 320.00m,
-                Description = "Suite 201 - Panoramic mountain view.",
+                Capacity = 4,
+                Currency = "USD",
+                IsBookable = true,
+                TourPath = (string?)null,
+                Description = "Suite 201 - Panoramic mountain view presidential suite.",
                 Amenities = new List<string> { "Jacuzzi", "Wifi", "Desayuno", "Chimenea" }
             }
         );

@@ -52,4 +52,22 @@ public class InternalBookingsController(
 
         return Ok(new { Total = total, Cancelled = cancelled, Confirmed = confirmed });
     }
+
+    [HttpPost("/internal/v1/availability/check")]
+    public async Task<IActionResult> CheckAvailability([FromBody] AvailabilityRequest request)
+    {
+        if (request.CheckIn >= request.CheckOut)
+        {
+            return BadRequest(new { message = "CheckIn date must be before CheckOut date." });
+        }
+
+        var nights = request.CheckOut.DayNumber - request.CheckIn.DayNumber;
+        if (nights is < 1 or > 30)
+        {
+            return BadRequest(new { message = "Stay duration must be between 1 and 30 nights for MVP." });
+        }
+
+        var response = await bookingQueryService.CheckAvailabilityAsync(request);
+        return Ok(response);
+    }
 }

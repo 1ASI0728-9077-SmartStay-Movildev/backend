@@ -23,3 +23,21 @@ public sealed record BookingEligibilityResponse(
     string Status,
     bool IsEligibleForPayment
 );
+
+/// <summary>
+/// Resultado de búsqueda de habitaciones para el catálogo y Concierge.
+/// </summary>
+public sealed record RoomSearchResult(
+    int RoomId,
+    int HotelId,
+    string HotelName,
+    string District,
+    string City,
+    string RoomTypeName,
+    decimal NightlyPrice,
+    string Currency,
+    int Capacity,
+    bool IsBookable,
+    string? TourPath,
+    IReadOnlyList<string> Amenities
+);

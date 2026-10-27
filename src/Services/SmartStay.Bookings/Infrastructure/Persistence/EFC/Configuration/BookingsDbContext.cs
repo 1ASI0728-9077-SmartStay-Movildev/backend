@@ -27,6 +27,8 @@ public sealed class BookingsDbContext(DbContextOptions<BookingsDbContext> option
         builder.Entity<Booking>().Property(b => b.HotelId).IsRequired();
         builder.Entity<Booking>().Property(b => b.GuestName).IsRequired().HasMaxLength(100);
         builder.Entity<Booking>().Property(b => b.GuestEmail).IsRequired().HasMaxLength(200);
+        builder.Entity<Booking>().Property(b => b.GuestUserId).HasDefaultValue(0);
+        builder.Entity<Booking>().HasIndex(b => b.GuestUserId, "ix_bookings_guest_user_id");
         builder.Entity<Booking>().Property(b => b.CheckInDate).IsRequired();
         builder.Entity<Booking>().Property(b => b.CheckOutDate).IsRequired();
         builder.Entity<Booking>().Property(b => b.NightlyPrice).HasColumnType("decimal(18,2)").IsRequired();

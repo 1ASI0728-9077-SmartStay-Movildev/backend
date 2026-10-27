@@ -16,6 +16,7 @@ public partial class Hotel
         Address = string.Empty;
         City = string.Empty;
         Country = string.Empty;
+        District = string.Empty;
         Description = string.Empty;
         ImageUrl = string.Empty;
         Type = string.Empty;
@@ -33,6 +34,7 @@ public partial class Hotel
         Address = command.Address;
         City = command.City;
         Country = command.Country;
+        District = command.District;
         
         ImageUrl = command.ImageUrl;
         Description = command.Description;
@@ -104,6 +106,10 @@ public partial class Hotel
     /// The city where the hotel is located.
     /// </summary>
     public string City { get; private set; }
+    /// <summary>
+    /// The district where the hotel is located.
+    /// </summary>
+    public string District { get; private set; }
     /// <summary>
     /// The country where the hotel is located.
     /// </summary>
