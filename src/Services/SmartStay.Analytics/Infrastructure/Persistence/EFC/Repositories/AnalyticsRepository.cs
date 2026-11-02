@@ -50,12 +50,18 @@ public class AnalyticsRepository(
         if (existing is null)
         {
             await context.RevenueFacts.AddAsync(fact);
+            return;
         }
-        else if (fact.IsRefunded)
+
+        if (fact.IsRefunded)
         {
             existing.MarkRefunded(fact.RefundAmount);
-            context.RevenueFacts.Update(existing);
         }
+        else if (fact.Amount > 0)
+        {
+            existing.ApplyPayment(fact.BookingId, fact.HotelId, fact.Amount, fact.Currency);
+        }
+        context.RevenueFacts.Update(existing);
     }
 
     public async Task UpsertBookingFactAsync(BookingFact fact)

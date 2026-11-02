@@ -26,7 +26,7 @@ public class PaymentCommandService(
         // 2. Comprobar Idempotency-Key si fue proporcionada
         if (!string.IsNullOrWhiteSpace(command.IdempotencyKey))
         {
-            var existingRecord = await paymentRepository.FindIdempotencyRecordAsync(command.IdempotencyKey);
+            var existingRecord = await paymentRepository.FindIdempotencyRecordAsync(command.ActorId, command.IdempotencyKey);
             if (existingRecord is not null)
             {
                 if (existingRecord.RequestHash == requestHash)

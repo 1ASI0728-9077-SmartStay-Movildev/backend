@@ -74,12 +74,13 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_payments");
 
-                    b.HasIndex(new[] { "BookingId" }, "ix_payments_booking_id")
-                        .HasDatabaseName("ix_payments_booking_id");
-
                     b.HasIndex(new[] { "TransactionId" }, "ix_payments_transaction_id")
                         .IsUnique()
                         .HasDatabaseName("ix_payments_transaction_id");
+
+                    b.HasIndex(new[] { "BookingId" }, "ux_payments_booking_id")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payments_booking_id");
 
                     b.ToTable("payments", (string)null);
                 });
@@ -202,14 +203,14 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("SmartStay.Payments.Domain.Model.Entities.PaymentIdempotencyRecord", b =>
                 {
+                    b.Property<int>("ActorId")
+                        .HasColumnType("int")
+                        .HasColumnName("actor_id");
+
                     b.Property<string>("IdempotencyKey")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)")
                         .HasColumnName("idempotency_key");
-
-                    b.Property<int>("ActorId")
-                        .HasColumnType("int")
-                        .HasColumnName("actor_id");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime(6)")
@@ -231,7 +232,7 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("status");
 
-                    b.HasKey("IdempotencyKey")
+                    b.HasKey("ActorId", "IdempotencyKey")
                         .HasName("pk_payment_idempotency_records");
 
                     b.ToTable("payment_idempotency_records", (string)null);

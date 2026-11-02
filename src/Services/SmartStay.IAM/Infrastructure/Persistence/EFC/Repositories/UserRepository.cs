@@ -39,6 +39,22 @@ public class UserRepository(IamDbContext context) : IUserRepository
         return await context.Users.ToListAsync();
     }
 
+    public async Task<IEnumerable<User>> ListByScopeAsync(int? hotelId, int? chainId)
+    {
+        var query = context.Users.AsQueryable();
+
+        if (hotelId.HasValue)
+        {
+            query = query.Where(u => u.HotelId == hotelId.Value);
+        }
+        else if (chainId.HasValue)
+        {
+            query = query.Where(u => u.ChainId == chainId.Value);
+        }
+
+        return await query.ToListAsync();
+    }
+
     public void Update(User user)
     {
         context.Users.Update(user);

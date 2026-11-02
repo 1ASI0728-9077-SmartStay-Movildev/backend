@@ -20,7 +20,7 @@ public sealed record CurrentActor(
     public bool CanAccessHotel(int targetHotelId)
     {
         if (IsChainAdmin) return true;
-        if (IsHotelAdmin) return HotelId == targetHotelId;
-        return true; // Huéspedes u otros roles pueden consultar hoteles autorizados
+        if (IsHotelAdmin && HotelId.HasValue) return HotelId.Value == targetHotelId;
+        return false;
     }
 }

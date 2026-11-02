@@ -10,22 +10,33 @@ public class ConciergeAuthenticationMiddleware(RequestDelegate next, ILogger<Con
             var token = authHeader["Bearer ".Length..].Trim();
             var identity = await identityClient.ValidateAsync(token);
 
-            if (identity != null && identity.IsValid)
+            if (identity is null)
             {
-                var actor = new CurrentActor(
-                    UserId: identity.UserId ?? 0,
-                    Username: identity.Username ?? string.Empty,
-                    Role: identity.Role ?? string.Empty,
-                    HotelId: identity.HotelId,
-                    ChainId: identity.ChainId
-                );
+                logger.LogError("IAM validation service is unreachable or returned error.");
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new { message = "Identity verification service temporarily unavailable." });
+                return;
+            }
 
-                context.Items["CurrentActor"] = actor;
-            }
-            else
+            if (!identity.IsValid)
             {
-                logger.LogWarning("Token verification failed or session was revoked: {Reason}", identity?.Reason ?? "Service unavailable");
+                logger.LogWarning("Token verification rejected: {Reason}", identity.Reason ?? "Invalid or revoked token.");
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new { message = identity.Reason ?? "Invalid or revoked token." });
+                return;
             }
+
+            var actor = new CurrentActor(
+                UserId: identity.UserId ?? 0,
+                Username: identity.Username ?? string.Empty,
+                Role: identity.Role ?? string.Empty,
+                HotelId: identity.HotelId,
+                ChainId: identity.ChainId
+            );
+
+            context.Items["CurrentActor"] = actor;
         }
 
         await next(context);

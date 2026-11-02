@@ -10,6 +10,7 @@ public interface IUserRepository
     Task<bool> ExistsByUsernameAsync(string username);
     Task<int> CountActiveByRoleAsync(string role);
     Task<IEnumerable<User>> ListAsync();
+    Task<IEnumerable<User>> ListByScopeAsync(int? hotelId, int? chainId);
     void Update(User user);
     void Remove(User user);
 }

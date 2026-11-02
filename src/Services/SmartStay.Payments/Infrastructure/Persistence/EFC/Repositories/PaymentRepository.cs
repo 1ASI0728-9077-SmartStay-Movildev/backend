@@ -54,9 +54,9 @@ public class PaymentRepository(PaymentsDbContext context) : IPaymentRepository
         await context.IdempotencyRecords.AddAsync(record);
     }
 
-    public async Task<PaymentIdempotencyRecord?> FindIdempotencyRecordAsync(string idempotencyKey)
+    public async Task<PaymentIdempotencyRecord?> FindIdempotencyRecordAsync(int actorId, string idempotencyKey)
     {
-        return await context.IdempotencyRecords.FirstOrDefaultAsync(r => r.IdempotencyKey == idempotencyKey);
+        return await context.IdempotencyRecords.FirstOrDefaultAsync(r => r.ActorId == actorId && r.IdempotencyKey == idempotencyKey);
     }
 
     public async Task AddInboxMessageAsync(InboxMessage inboxMessage)

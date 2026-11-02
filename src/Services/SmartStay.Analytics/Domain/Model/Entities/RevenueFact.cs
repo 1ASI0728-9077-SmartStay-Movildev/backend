@@ -30,4 +30,12 @@ public class RevenueFact
         IsRefunded = true;
         RefundAmount = refundAmount;
     }
+
+    public void ApplyPayment(int bookingId, int hotelId, decimal amount, string currency)
+    {
+        BookingId = bookingId;
+        HotelId = hotelId;
+        Amount = amount;
+        Currency = currency;
+    }
 }

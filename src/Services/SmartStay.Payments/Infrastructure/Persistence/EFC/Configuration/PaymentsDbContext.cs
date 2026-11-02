@@ -29,7 +29,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
         builder.Entity<Payment>().Property(p => p.PaymentDate).IsRequired();
         builder.Entity<Payment>().Property(p => p.Status).HasConversion<int>().IsRequired();
 
-        builder.Entity<Payment>().HasIndex(p => p.BookingId, "ix_payments_booking_id");
+        builder.Entity<Payment>().HasIndex(p => p.BookingId, "ux_payments_booking_id").IsUnique();
         builder.Entity<Payment>().HasIndex(p => p.TransactionId, "ix_payments_transaction_id").IsUnique();
 
         // OutboxMessage Entity
@@ -56,7 +56,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
 
         // PaymentIdempotencyRecord Entity
         builder.Entity<PaymentIdempotencyRecord>().ToTable("payment_idempotency_records");
-        builder.Entity<PaymentIdempotencyRecord>().HasKey(r => r.IdempotencyKey);
+        builder.Entity<PaymentIdempotencyRecord>().HasKey(r => new { r.ActorId, r.IdempotencyKey });
         builder.Entity<PaymentIdempotencyRecord>().Property(r => r.IdempotencyKey).HasMaxLength(100);
         builder.Entity<PaymentIdempotencyRecord>().Property(r => r.RequestHash).IsRequired().HasMaxLength(128);
         builder.Entity<PaymentIdempotencyRecord>().Property(r => r.Status).IsRequired().HasMaxLength(50);

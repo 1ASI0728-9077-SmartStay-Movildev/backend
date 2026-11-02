@@ -38,9 +38,15 @@ const emit = defineEmits<{
 async function consultConcierge() {
   loading.value = true;
   try {
+    const token = localStorage.getItem('token') || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch('/api/v1/concierge/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         message: userQuery.value || 'Recomiéndame las mejores opciones para mi estadía.',
         checkIn: checkIn.value,

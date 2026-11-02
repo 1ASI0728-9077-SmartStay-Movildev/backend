@@ -58,7 +58,7 @@ builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
 builder.Services.AddScoped<IAnalyticsQueryService, AnalyticsQueryService>();
 
 // IAM Client
-var iamUrl = builder.Configuration["Services:IamUrl"] ?? "http://legacy:8080";
+var iamUrl = builder.Configuration["Services:IamUrl"] ?? "http://iam:8080";
 builder.Services.AddHttpClient<IIdentityVerificationClient, IdentityVerificationClient>(client =>
 {
     client.BaseAddress = new Uri(iamUrl);

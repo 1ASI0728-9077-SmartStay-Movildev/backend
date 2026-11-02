@@ -52,8 +52,18 @@ public class HotelsController(
     [SwaggerOperation(Summary = "Create a new hotel property node", OperationId = "CreateHotel")]
     [SwaggerResponse(StatusCodes.Status201Created, "The hotel aggregate was created successfully.", typeof(HotelResource))]
     [SwaggerResponse(StatusCodes.Status400BadRequest, "The incoming resource creation payload is invalid.")]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Forbidden to create a hotel outside administrative scope.")]
     public async Task<IActionResult> CreateHotel([FromBody] CreateHotelResource resource)
     {
+        var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
+        if (actor == null) return Unauthorized();
+
+        // Enforce actor boundary: HotelAdmin cannot impersonate arbitrary HostId
+        if (actor.IsHotelAdmin && resource.HostId != actor.UserId)
+        {
+            return Forbid();
+        }
+
         var createHotelCommand = CreateHotelCommandFromResourceAssembler.ToCommandFromResource(resource);
         var hotel = await hotelCommandService.Handle(createHotelCommand);
         if (hotel is null) return BadRequest();

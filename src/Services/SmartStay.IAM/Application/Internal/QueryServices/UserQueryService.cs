@@ -31,10 +31,21 @@ public class UserQueryService(
         var actor = await userRepository.FindByIdAsync(query.ActorUserId);
         if (actor == null) return Enumerable.Empty<User>();
 
-        var allUsers = await userRepository.ListAsync();
-        
-        // Reutilizamos la lógica centralizada del dominio. DDD 10/10.
-        return allUsers.Where(target => userScopeService.CanAccessUser(actor, target));
+        IEnumerable<User> scopedUsers;
+        if (string.Equals(actor.Role.Value, Domain.Model.Constants.UserRoles.ChainAdmin, StringComparison.OrdinalIgnoreCase))
+        {
+            scopedUsers = await userRepository.ListByScopeAsync(null, actor.ChainId);
+        }
+        else if (string.Equals(actor.Role.Value, Domain.Model.Constants.UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
+        {
+            scopedUsers = await userRepository.ListByScopeAsync(actor.HotelId, null);
+        }
+        else
+        {
+            return new[] { actor };
+        }
+
+        return scopedUsers.Where(target => userScopeService.CanAccessUser(actor, target));
     }
 
     public async Task<User?> Handle(GetUserByUsernameQuery query)

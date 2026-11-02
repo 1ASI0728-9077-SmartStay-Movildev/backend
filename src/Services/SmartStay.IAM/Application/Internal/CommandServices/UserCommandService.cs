@@ -152,6 +152,7 @@ public class UserCommandService(
             throw new UnauthorizedOperationException(
                 $"User {actor.Id} cannot manage user {target.Id}.");
 
+        bool revokeSessions = false;
         if (command.NewUsername is not null)
         {
             var newUsername = new Username(command.NewUsername);
@@ -161,12 +162,14 @@ public class UserCommandService(
                 throw new UsernameAlreadyExistsException(command.NewUsername);
             }
             target.UpdateUsername(command.NewUsername);
+            revokeSessions = true;
         }
 
         if (command.NewPassword is not null)
         {
             var hashed = hashingService.HashPassword(command.NewPassword);
             target.UpdatePasswordHash(hashed);
+            revokeSessions = true;
         }
 
         if (command.NewHotelId.HasValue)
@@ -176,6 +179,7 @@ public class UserCommandService(
                     $"User {actor.Id} cannot assign hotel {command.NewHotelId}.");
 
             target.UpdateHotelId(command.NewHotelId);
+            revokeSessions = true;
         }
 
         if (command.NewChainId.HasValue)
@@ -185,6 +189,12 @@ public class UserCommandService(
                     $"User {actor.Id} cannot assign chain {command.NewChainId}.");
 
             target.UpdateChainId(command.NewChainId);
+            revokeSessions = true;
+        }
+
+        if (revokeSessions)
+        {
+            target.IncrementTokenVersion();
         }
 
         await unitOfWork.CompleteAsync();
@@ -216,6 +226,7 @@ public class UserCommandService(
         }
 
         target.AssignRole(command.NewRole);
+        target.IncrementTokenVersion();
         await unitOfWork.CompleteAsync();
     }
 
