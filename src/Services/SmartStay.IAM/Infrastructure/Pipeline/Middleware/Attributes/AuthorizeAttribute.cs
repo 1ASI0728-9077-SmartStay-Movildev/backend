@@ -45,6 +45,6 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
         var hasAllowedRole = _roles.Any(role =>
             string.Equals(role, user.Role, StringComparison.OrdinalIgnoreCase));
 
-        if (!hasAllowedRole) context.Result = new ForbidResult();
+        if (!hasAllowedRole) context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
     }
 }

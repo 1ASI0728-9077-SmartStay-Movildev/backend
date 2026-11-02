@@ -14,7 +14,7 @@ COPY src/Services/SmartStay.Analytics/ src/Services/SmartStay.Analytics/
 
 # Compilar y publicar
 WORKDIR /src/src/Services/SmartStay.Analytics
-RUN dotnet publish -c Release -o /app/publish --no-restore
+RUN dotnet publish -c Release -o /app/publish
 
 # Etapa final de runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS runtime

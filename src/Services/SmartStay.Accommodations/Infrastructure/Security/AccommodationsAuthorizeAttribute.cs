@@ -26,7 +26,7 @@ public class AccommodationsAuthorizeAttribute(params string[] roles) : Attribute
         var hasRole = _roles.Any(r => string.Equals(r, actor.Role, StringComparison.OrdinalIgnoreCase));
         if (!hasRole)
         {
-            context.Result = new ForbidResult();
+            context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
         }
     }
 }

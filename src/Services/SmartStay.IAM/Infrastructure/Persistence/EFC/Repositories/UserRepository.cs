@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartStay.IAM.Domain.Model.Aggregates;
+using SmartStay.IAM.Domain.Model.ValueObjects;
 using SmartStay.IAM.Domain.Repositories;
 using SmartStay.IAM.Infrastructure.Persistence.EFC.Configuration;
 
@@ -19,18 +20,21 @@ public class UserRepository(IamDbContext context) : IUserRepository
 
     public async Task<User?> FindByUsernameAsync(string username)
     {
-        return await context.Users.FirstOrDefaultAsync(u => u.Username.Value == username);
+        var target = new Username(username);
+        return await context.Users.FirstOrDefaultAsync(u => u.Username == target);
     }
 
     public async Task<bool> ExistsByUsernameAsync(string username)
     {
-        return await context.Users.AnyAsync(u => u.Username.Value == username);
+        var target = new Username(username);
+        return await context.Users.AnyAsync(u => u.Username == target);
     }
 
     public async Task<int> CountActiveByRoleAsync(string role)
     {
+        var target = new Role(role);
         return await context.Users
-            .Where(u => u.Role.Value == role && u.Status == Domain.Model.Enums.UserStatus.Active)
+            .Where(u => u.Role == target && u.Status == Domain.Model.Enums.UserStatus.Active)
             .CountAsync();
     }
 

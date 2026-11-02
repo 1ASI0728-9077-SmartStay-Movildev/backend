@@ -21,6 +21,7 @@ public class BookingsPaymentConsumerWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Yield();
         logger.LogInformation("BookingsPaymentConsumerWorker is starting.");
 
         while (!stoppingToken.IsCancellationRequested)

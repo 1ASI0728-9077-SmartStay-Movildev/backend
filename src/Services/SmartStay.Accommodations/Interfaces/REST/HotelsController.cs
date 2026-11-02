@@ -61,7 +61,7 @@ public class HotelsController(
         // Enforce actor boundary: HotelAdmin cannot impersonate arbitrary HostId
         if (actor.IsHotelAdmin && resource.HostId != actor.UserId)
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var createHotelCommand = CreateHotelCommandFromResourceAssembler.ToCommandFromResource(resource);
@@ -81,7 +81,7 @@ public class HotelsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (actor != null && !actor.CanAccessHotel(hotelId))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var updateHotelCommand = UpdateHotelCommandFromResourceAssembler.ToCommandFromResource(hotelId, resource);
@@ -101,7 +101,7 @@ public class HotelsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (actor != null && !actor.CanAccessHotel(hotelId))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var deleteHotelCommand = new DeleteHotelCommand(hotelId);

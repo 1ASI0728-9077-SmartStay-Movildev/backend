@@ -14,6 +14,7 @@ public class OutboxPublisherWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Yield();
         var brokerUri = configuration["ActiveMq:BrokerUri"] ?? "tcp://localhost:61616";
         logger.LogInformation("OutboxPublisherWorker starting connected to {BrokerUri} publishing on {Topic}", brokerUri, PaymentsTopicName);
 

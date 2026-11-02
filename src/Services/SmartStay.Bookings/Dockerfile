@@ -14,7 +14,7 @@ COPY src/Services/SmartStay.Bookings/ src/Services/SmartStay.Bookings/
 
 # Compilar y publicar
 WORKDIR /src/src/Services/SmartStay.Bookings
-RUN dotnet publish -c Release -o /app/publish --no-restore
+RUN dotnet publish -c Release -o /app/publish
 
 # Etapa final de runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS runtime

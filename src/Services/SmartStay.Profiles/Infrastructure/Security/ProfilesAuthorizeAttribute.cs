@@ -30,7 +30,7 @@ public class ProfilesAuthorizeAttribute : Attribute, IAuthorizationFilter
 
         if (_roles.Length > 0 && !_roles.Contains(user.Role, StringComparer.OrdinalIgnoreCase))
         {
-            context.Result = new ForbidResult();
+            context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
         }
     }
 }

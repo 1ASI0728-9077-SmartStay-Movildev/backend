@@ -70,7 +70,7 @@ public class BookingsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (!CanAccessBooking(actor, booking))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         return Ok(BookingAssemblers.ToResource(booking));
@@ -148,7 +148,7 @@ public class BookingsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (!CanAccessBooking(actor, existing))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var booking = await bookingCommandService.Handle(new ConfirmBookingCommand(bookingId));
@@ -170,7 +170,7 @@ public class BookingsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (!CanAccessBooking(actor, existing))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var booking = await bookingCommandService.Handle(new CancelBookingCommand(bookingId));

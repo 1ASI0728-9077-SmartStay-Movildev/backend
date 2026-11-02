@@ -163,7 +163,7 @@ echo "OK (HTTP 403 Forbidden garantizado)"
 
 # 11. Aislamiento Estricto: Guest2 intenta cancelar la reserva de Guest1 -> Debe ser 403 Forbidden
 echo -n "11. Comprobando aislamiento de seguridad (Guest2 intenta cancelar reserva de Guest1)... "
-FORBIDDEN_CANCEL=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $TOKEN_GUEST2" "$GATEWAY_URL/api/v1/bookings/$BOOKING_ID/cancel")
+FORBIDDEN_CANCEL=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $TOKEN_GUEST2" -H "Content-Length: 0" "$GATEWAY_URL/api/v1/bookings/$BOOKING_ID/cancel")
 if [ "$FORBIDDEN_CANCEL" -ne 403 ]; then
     echo "FAILED (Se esperaba HTTP 403 Forbidden pero se recibió HTTP $FORBIDDEN_CANCEL)"
     exit 1
@@ -181,7 +181,7 @@ echo "OK (HTTP 403 Forbidden garantizado para admin fuera de ámbito)"
 
 # 13. Cancelación legítima por Guest1
 echo -n "13. Verificando cancelación legítima por el huésped propietario (Guest1)... "
-CANCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $TOKEN_GUEST1" "$GATEWAY_URL/api/v1/bookings/$BOOKING_ID/cancel")
+CANCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $TOKEN_GUEST1" -H "Content-Length: 0" "$GATEWAY_URL/api/v1/bookings/$BOOKING_ID/cancel")
 if [ "$CANCEL_STATUS" -ne 200 ]; then
     echo "FAILED (HTTP $CANCEL_STATUS)"
     exit 1

@@ -14,7 +14,7 @@ COPY src/Services/SmartStay.Concierge/ src/Services/SmartStay.Concierge/
 
 # Compilar y publicar
 WORKDIR /src/src/Services/SmartStay.Concierge
-RUN dotnet publish -c Release -o /app/publish --no-restore
+RUN dotnet publish -c Release -o /app/publish
 
 # Etapa final de runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS runtime

@@ -121,7 +121,7 @@ public class RoomsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (actor != null && !actor.CanAccessHotel(resource.HotelId))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var createRoomCommand = CreateRoomCommandFromResourceAssembler.ToCommandFromResource(resource);
@@ -168,7 +168,7 @@ public class RoomsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (actor != null && !actor.CanAccessHotel(existing.HotelId))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var updateRoomCommand = UpdateRoomCommandFromResourceAssembler.ToCommandFromResource(roomId, resource);
@@ -191,7 +191,7 @@ public class RoomsController(
         var actor = HttpContext.Items["CurrentActor"] as CurrentActor;
         if (actor != null && !actor.CanAccessHotel(existing.HotelId))
         {
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var deleteRoomCommand = new DeleteRoomCommand(roomId);

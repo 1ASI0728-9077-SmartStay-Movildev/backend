@@ -19,6 +19,7 @@ public class PaymentsCompensationConsumerWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Yield();
         var brokerUri = configuration["ActiveMq:BrokerUri"] ?? "tcp://localhost:61616";
         logger.LogInformation("Starting PaymentsCompensationConsumerWorker connected to {BrokerUri} queue {Queue}", brokerUri, CompensationQueueName);
 

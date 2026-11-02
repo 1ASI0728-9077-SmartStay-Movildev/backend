@@ -9,17 +9,24 @@ services:
       MYSQL_USER: ${MYSQL_USER:-smartstay_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smartstay_password}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+    - ${MYSQL_PORT:-3306}:3306
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./deploy/mysql/init-scripts:/docker-entrypoint-initdb.d:ro
+    - mysql_data:/var/lib/mysql
+    - ./deploy/mysql/init-scripts:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test:
+      - CMD
+      - mysqladmin
+      - ping
+      - -h
+      - 127.0.0.1
+      - -u
+      - root
+      - -prootpassword
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-
   activemq:
     image: apache/activemq-classic:5.18.3
     container_name: smartstay-activemq
@@ -28,34 +35,36 @@ services:
       ACTIVEMQ_USER: ${ACTIVEMQ_USER:-admin}
       ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD:-admin}
     ports:
-      - "${ACTIVEMQ_OPENWIRE_PORT:-61616}:61616"
-      - "${ACTIVEMQ_WEB_PORT:-8161}:8161"
+    - ${ACTIVEMQ_OPENWIRE_PORT:-61616}:61616
+    - ${ACTIVEMQ_WEB_PORT:-8161}:8161
     volumes:
-      - activemq_data:/opt/apache-activemq/data
+    - activemq_data:/opt/apache-activemq/data
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 61616 || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/61616
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-
   gateway:
     image: nginx:1.25-alpine
     container_name: smartstay-gateway
     restart: unless-stopped
     ports:
-      - "${GATEWAY_PORT:-8080}:80"
+    - ${GATEWAY_PORT:-8080}:80
     volumes:
-      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - iam
-      - accommodations
-      - bookings
-      - payments
-      - profiles
-      - analytics
-      - concierge
-
+    - iam
+    - accommodations
+    - bookings
+    - payments
+    - profiles
+    - analytics
+    - concierge
   iam:
     build:
       context: .
@@ -65,7 +74,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__IamConnection: "server=mysql;port=3306;user=iam_user;password=iam_pass;database=smartstay_iam;"
+      ConnectionStrings__IamConnection: server=mysql;port=3306;user=iam_user;password=iam_pass;database=smartstay_iam;
       TokenSettings__Secret: ${JWT_SECRET:-EstaEsUnaClaveSecretaMuyLargaYSeguraParaSmartStay123!}
       TokenSettings__Audience: ${JWT_AUDIENCE:-http://localhost:5173}
       TokenSettings__Issuer: ${JWT_ISSUER:-http://localhost:5192}
@@ -74,14 +83,17 @@ services:
       mysql:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
+    - '8080'
   accommodations:
     build:
       context: .
@@ -91,22 +103,25 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AccommodationsConnection: "server=mysql;port=3306;user=accommodations_user;password=accommodations_pass;database=smartstay_accommodations;"
-      Services__IamUrl: "http://iam:8080"
+      ConnectionStrings__AccommodationsConnection: server=mysql;port=3306;user=accommodations_user;password=accommodations_pass;database=smartstay_accommodations;
+      Services__IamUrl: http://iam:8080
     depends_on:
       mysql:
         condition: service_healthy
       iam:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
+    - '8080'
   bookings:
     build:
       context: .
@@ -116,10 +131,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__BookingsConnection: "server=mysql;port=3306;user=bookings_user;password=bookings_pass;database=smartstay_bookings;"
-      Services__AccommodationsUrl: "http://accommodations:8080"
-      Services__IamUrl: "http://iam:8080"
-      ActiveMq__BrokerUri: "tcp://activemq:61616"
+      ConnectionStrings__BookingsConnection: server=mysql;port=3306;user=bookings_user;password=bookings_pass;database=smartstay_bookings;
+      Services__AccommodationsUrl: http://accommodations:8080
+      Services__IamUrl: http://iam:8080
+      ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
       mysql:
         condition: service_healthy
@@ -130,14 +145,17 @@ services:
       accommodations:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
+    - '8080'
   payments:
     build:
       context: .
@@ -147,10 +165,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__PaymentsConnection: "server=mysql;port=3306;user=payments_user;password=payments_pass;database=smartstay_payments;"
-      Services__BookingsUrl: "http://bookings:8080"
-      Services__IamUrl: "http://iam:8080"
-      ActiveMq__BrokerUri: "tcp://activemq:61616"
+      ConnectionStrings__PaymentsConnection: server=mysql;port=3306;user=payments_user;password=payments_pass;database=smartstay_payments;
+      Services__BookingsUrl: http://bookings:8080
+      Services__IamUrl: http://iam:8080
+      ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
       mysql:
         condition: service_healthy
@@ -161,14 +179,17 @@ services:
       bookings:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
+    - '8080'
   profiles:
     build:
       context: .
@@ -178,22 +199,25 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__ProfilesConnection: "server=mysql;port=3306;user=profiles_user;password=profiles_pass;database=smartstay_profiles;"
-      Services__IamUrl: "http://iam:8080"
+      ConnectionStrings__ProfilesConnection: server=mysql;port=3306;user=profiles_user;password=profiles_pass;database=smartstay_profiles;
+      Services__IamUrl: http://iam:8080
     depends_on:
       mysql:
         condition: service_healthy
       iam:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
+    - '8080'
   analytics:
     build:
       context: .
@@ -203,9 +227,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AnalyticsConnection: "server=mysql;port=3306;user=analytics_user;password=analytics_pass;database=smartstay_analytics;"
-      Services__IamUrl: "http://iam:8080"
-      ActiveMq__BrokerUri: "tcp://activemq:61616"
+      ConnectionStrings__AnalyticsConnection: server=mysql;port=3306;user=analytics_user;password=analytics_pass;database=smartstay_analytics;
+      Services__IamUrl: http://iam:8080
+      ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
       mysql:
         condition: service_healthy
@@ -214,14 +238,17 @@ services:
       iam:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
+    - '8080'
   concierge:
     build:
       context: .
@@ -231,9 +258,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      Services__AccommodationsUrl: "http://accommodations:8080"
-      Services__BookingsUrl: "http://bookings:8080"
-      Services__IamUrl: "http://iam:8080"
+      Services__AccommodationsUrl: http://accommodations:8080
+      Services__BookingsUrl: http://bookings:8080
+      Services__IamUrl: http://iam:8080
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY:-}
       DeepSeek__Model: ${DEEPSEEK_MODEL:-deepseek-chat}
     depends_on:
@@ -244,78 +271,101 @@ services:
       bookings:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - </dev/tcp/127.0.0.1/8080
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     expose:
-      - "8080"
-
-  # =================================================================
-  # Standalone Migration Jobs (Run explicitly on demand or in CI/CD)
-  # Example: docker compose -f compose.microservices.yml run --rm accommodations-migrate
-  # =================================================================
+    - '8080'
   iam-migrate:
     image: mysql:8.0.36
-    profiles: ["migration"]
+    profiles:
+    - migration
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
-      - ./artifacts/migrations:/migrations:ro
-    entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_iam < /migrations/iam.sql"]
-
+    - ./artifacts/migrations:/migrations:ro
+    entrypoint:
+    - sh
+    - -c
+    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_iam
+      < /migrations/iam.sql
   accommodations-migrate:
     image: mysql:8.0.36
-    profiles: ["migration"]
+    profiles:
+    - migration
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
-      - ./artifacts/migrations:/migrations:ro
-    entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_accommodations < /migrations/accommodations.sql"]
-
+    - ./artifacts/migrations:/migrations:ro
+    entrypoint:
+    - sh
+    - -c
+    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_accommodations
+      < /migrations/accommodations.sql
   bookings-migrate:
     image: mysql:8.0.36
-    profiles: ["migration"]
+    profiles:
+    - migration
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
-      - ./artifacts/migrations:/migrations:ro
-    entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_bookings < /migrations/bookings.sql"]
-
+    - ./artifacts/migrations:/migrations:ro
+    entrypoint:
+    - sh
+    - -c
+    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_bookings
+      < /migrations/bookings.sql
   payments-migrate:
     image: mysql:8.0.36
-    profiles: ["migration"]
+    profiles:
+    - migration
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
-      - ./artifacts/migrations:/migrations:ro
-    entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_payments < /migrations/payments.sql"]
-
+    - ./artifacts/migrations:/migrations:ro
+    entrypoint:
+    - sh
+    - -c
+    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_payments
+      < /migrations/payments.sql
   profiles-migrate:
     image: mysql:8.0.36
-    profiles: ["migration"]
+    profiles:
+    - migration
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
-      - ./artifacts/migrations:/migrations:ro
-    entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_profiles < /migrations/profiles.sql"]
-
+    - ./artifacts/migrations:/migrations:ro
+    entrypoint:
+    - sh
+    - -c
+    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_profiles
+      < /migrations/profiles.sql
   analytics-migrate:
     image: mysql:8.0.36
-    profiles: ["migration"]
+    profiles:
+    - migration
     depends_on:
       mysql:
         condition: service_healthy
     volumes:
-      - ./artifacts/migrations:/migrations:ro
-    entrypoint: ["sh", "-c", "mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_analytics < /migrations/analytics.sql"]
-
+    - ./artifacts/migrations:/migrations:ro
+    entrypoint:
+    - sh
+    - -c
+    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_analytics
+      < /migrations/analytics.sql
 volumes:
-  mysql_data:
-  activemq_data:
+  mysql_data: null
+  activemq_data: null

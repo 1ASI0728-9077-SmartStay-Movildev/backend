@@ -15,7 +15,7 @@ SQL_PAYLOAD=$(cat << 'EOF'
 USE `smartstay_iam`;
 
 -- Hash bcrypt para 'Password123!'
-SET @pwd_hash = '$2a$11$qB/7uM9QG5E0oPcfFp6oZONp59Y6K51817vCq2k8tZ0eQ0E6V6aO6';
+SET @pwd_hash = '$2b$11$BVsiS4iDmCbMbItpHXSCi.Z1hE5eyJ57wgkcjQNutfatQZCLKmF5u';
 
 INSERT INTO `users` (`Id`, `Username`, `PasswordHash`, `Role`, `Status`, `hotel_id`, `chain_id`, `token_version`, `created_at`, `updated_at`)
 VALUES
@@ -25,6 +25,7 @@ VALUES
   (4, 'admin_cusco', @pwd_hash, 'admin', 'Active', 2, 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP()),
   (5, 'chain_admin', @pwd_hash, 'chain_admin', 'Active', NULL, 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
+  `Username` = VALUES(`Username`),
   `PasswordHash` = VALUES(`PasswordHash`),
   `Role` = VALUES(`Role`),
   `Status` = VALUES(`Status`),
@@ -32,6 +33,16 @@ ON DUPLICATE KEY UPDATE
   `chain_id` = VALUES(`chain_id`),
   `token_version` = 1,
   `updated_at` = UTC_TIMESTAMP();
+
+USE `smartstay_bookings`;
+DELETE FROM `room_night_locks`;
+DELETE FROM `bookings`;
+
+USE `smartstay_payments`;
+DELETE FROM `outbox_messages`;
+DELETE FROM `inbox_messages`;
+DELETE FROM `payments`;
+DELETE FROM `payment_idempotency_records`;
 EOF
 )
 

@@ -25,7 +25,7 @@ public class ConciergeAuthorizeAttribute(params string[] roles) : Attribute, IAu
 
         if (_allowedRoles.Length > 0 && !_allowedRoles.Contains(actor.Role, StringComparer.OrdinalIgnoreCase))
         {
-            context.Result = new ForbidResult();
+            context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
         }
     }
 }
