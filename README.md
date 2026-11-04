@@ -148,3 +148,4 @@ bash tools/check-boundaries.sh
 | `chain_admin` | `Password123!` | `chain_admin` | Toda la cadena hotelera |
 | `guest1` | `Password123!` | `guest` | Huésped regular |
 | `guest2` | `Password123!` | `guest` | Huésped regular |
+# backend
