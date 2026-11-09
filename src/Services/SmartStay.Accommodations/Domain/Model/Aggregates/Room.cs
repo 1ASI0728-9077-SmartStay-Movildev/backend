@@ -35,6 +35,7 @@ public partial class Room
         Currency = string.IsNullOrWhiteSpace(command.Currency) ? "USD" : command.Currency;
         IsBookable = command.IsBookable;
         TourPath = command.TourPath;
+        Layout = string.Empty;
     }
     
     /// <summary>
@@ -96,6 +97,16 @@ public partial class Room
     /// Path or URL to the 360 virtual tour manifest, if available.
     /// </summary>
     public string? TourPath { get; private set; }
+
+    /// <summary>
+    /// JSON layout describing the room 3D dimensions and furniture placement.
+    /// </summary>
+    public string? Layout { get; private set; }
+
+    public void SetLayout(string? layout)
+    {
+        Layout = layout;
+    }
     
     /// <summary>
     /// A description of the room.
