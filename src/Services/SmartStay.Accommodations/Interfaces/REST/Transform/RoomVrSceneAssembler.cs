@@ -1,3 +1,5 @@
+using System.Globalization;
+using BackendAwSmartstay.API.Accommodations.Application.Internal.Services;
 using BackendAwSmartstay.API.Accommodations.Domain.Model.Aggregates;
 using SmartStay.Contracts.Http;
 
@@ -16,18 +18,23 @@ public static class RoomVrSceneAssembler
         var layout = RoomLayoutValidator.Deserialize(room.Layout);
         if (layout is null)
         {
-            throw new InvalidOperationException($"Room {room.Id} has no saved layout.");
+            throw new InvalidOperationException($"La habitación {room.Id} no tiene un layout guardado.");
         }
 
         var preview = RoomLayoutValidator.Validate(layout);
+        if (!preview.IsValid)
+        {
+            throw new InvalidOperationException("El layout guardado no es válido para construir la escena VR.");
+        }
+
         var width = layout.WidthM;
         var length = layout.LengthM;
         var height = layout.HeightM;
-        var area = Math.Round(width * length, 2);
+        var area = Math.Round(width * length, 2, MidpointRounding.AwayFromZero);
 
-        var walls = BuildWalls(width, length, height);
-        var beds = BuildBeds(layout.Beds, preview.BedSummary);
-        var spawn = ComputeSpawn(layout, width, length, height);
+        var walls = BuildWalls(width, length, height, layout);
+        var beds = BuildBeds(layout.Beds, width, length);
+        var spawn = ComputeSpawn(layout, width, length);
         var panels = BuildPanels(area, layout.Floor, preview.BedSummary, preview.GuestCapacity, width, length);
 
         return new RoomVrSceneResponse(
@@ -51,39 +58,55 @@ public static class RoomVrSceneAssembler
             Panels: panels);
     }
 
-    private static IReadOnlyList<RoomVrWall> BuildWalls(double width, double length, double height)
+    private static IReadOnlyList<RoomVrWall> BuildWalls(double width, double length, double height, RoomLayoutDto layout)
     {
-        var northStart = new RoomVrPoint(0, 0);
-        var northEnd = new RoomVrPoint(width, 0);
-        var southStart = new RoomVrPoint(0, length);
-        var southEnd = new RoomVrPoint(width, length);
-        var eastStart = new RoomVrPoint(width, 0);
-        var eastEnd = new RoomVrPoint(width, length);
-        var westStart = new RoomVrPoint(0, 0);
-        var westEnd = new RoomVrPoint(0, length);
+        var northStart = new RoomVrPoint(-width / 2d, -length / 2d);
+        var northEnd = new RoomVrPoint(width / 2d, -length / 2d);
+        var southStart = new RoomVrPoint(-width / 2d, length / 2d);
+        var southEnd = new RoomVrPoint(width / 2d, length / 2d);
+        var eastStart = new RoomVrPoint(width / 2d, -length / 2d);
+        var eastEnd = new RoomVrPoint(width / 2d, length / 2d);
+        var westStart = new RoomVrPoint(-width / 2d, -length / 2d);
+        var westEnd = new RoomVrPoint(-width / 2d, length / 2d);
+
+        var openings = new Dictionary<string, IReadOnlyList<RoomVrOpening>>
+        {
+            ["N"] = BuildOpeningList(layout, "N", height),
+            ["S"] = BuildOpeningList(layout, "S", height),
+            ["E"] = BuildOpeningList(layout, "E", height),
+            ["W"] = BuildOpeningList(layout, "W", height)
+        };
 
         return
         [
-            new("N", northStart, northEnd, height, BuildOpeningList("N", height, new[] { new RoomVrOpening("window", 1.0, 2.0, WindowSillM, WindowHeightM) })),
-            new("S", southStart, southEnd, height, BuildOpeningList("S", height, new[] { new RoomVrOpening("door", 0.4, 0.9, DoorSillM, DoorHeightM) })),
-            new("E", eastStart, eastEnd, height, []),
-            new("W", westStart, westEnd, height, [])
+            new("N", northStart, northEnd, height, openings["N"]),
+            new("S", southStart, southEnd, height, openings["S"]),
+            new("E", eastStart, eastEnd, height, openings["E"]),
+            new("W", westStart, westEnd, height, openings["W"])
         ];
     }
 
-    private static IReadOnlyList<RoomVrOpening> BuildOpeningList(string wall, double height, IEnumerable<RoomVrOpening> openings)
+    private static IReadOnlyList<RoomVrOpening> BuildOpeningList(RoomLayoutDto layout, string wall, double height)
     {
         var list = new List<RoomVrOpening>();
-        foreach (var opening in openings)
+        var doorOpening = layout.Door;
+        if (doorOpening is not null && string.Equals(doorOpening.Wall, wall, StringComparison.OrdinalIgnoreCase))
         {
-            var adjustedHeight = Math.Min(opening.HeightM, Math.Max(0.0, height - CeilingMarginM));
-            list.Add(new RoomVrOpening(opening.Kind, opening.OffsetM, opening.WidthM, opening.SillM, adjustedHeight));
+            list.Add(new RoomVrOpening("door", doorOpening.Offset, doorOpening.Width, DoorSillM, Math.Min(DoorHeightM, Math.Max(0.0, height - CeilingMarginM))));
+        }
+
+        foreach (var window in layout.Windows ?? [])
+        {
+            if (string.Equals(window.Wall, wall, StringComparison.OrdinalIgnoreCase))
+            {
+                list.Add(new RoomVrOpening("window", window.Offset, window.Width, WindowSillM, Math.Min(WindowHeightM, Math.Max(0.0, height - CeilingMarginM))));
+            }
         }
 
         return list;
     }
 
-    private static IReadOnlyList<RoomVrBed> BuildBeds(IReadOnlyList<RoomBedPlacement>? placements, string bedSummary)
+    private static IReadOnlyList<RoomVrBed> BuildBeds(IReadOnlyList<RoomBedPlacement>? placements, double roomWidth, double roomLength)
     {
         if (placements is null || placements.Count == 0)
         {
@@ -97,79 +120,79 @@ public static class RoomVrSceneAssembler
         foreach (var placement in placements)
         {
             var matched = specMap.TryGetValue(placement.Type, out var bedSpec) ? bedSpec : catalog.Beds[0];
-            var width = bedSpec?.WidthM ?? matched.WidthM;
-            var length = bedSpec?.LengthM ?? matched.LengthM;
-            var effectiveWidth = placement.RotationDeg % 180 == 0 ? width : length;
-            var effectiveLength = placement.RotationDeg % 180 == 0 ? length : width;
-
-            var rotation = placement.RotationDeg;
+            var width = Math.Abs(placement.RotationDeg % 180d) < 0.0001 ? matched.WidthM : matched.LengthM;
+            var length = Math.Abs(placement.RotationDeg % 180d) < 0.0001 ? matched.LengthM : matched.WidthM;
+            var rotation = (360 - placement.RotationDeg) % 360;
+            var x = placement.X - roomWidth / 2d;
+            var z = placement.Z - roomLength / 2d;
             result.Add(new RoomVrBed(
                 Type: placement.Type,
                 Label: matched.Label,
-                X: placement.X,
-                Z: placement.Z,
+                X: x,
+                Z: z,
                 RotationDeg: rotation,
-                WidthM: effectiveWidth,
-                LengthM: effectiveLength,
+                WidthM: width,
+                LengthM: length,
                 HeightM: 0.5));
         }
 
         return result;
     }
 
-    private static RoomVrSpawn ComputeSpawn(RoomLayoutDto layout, double roomWidth, double roomLength, double roomHeight)
+    private static RoomVrSpawn ComputeSpawn(RoomLayoutDto layout, double roomWidth, double roomLength)
     {
-        var doorWall = layout.Door.Wall;
-        var doorOffset = layout.Door.Offset;
-        var doorWidth = layout.Door.Width;
-        var margin = 0.3;
+        var doorWall = layout.Door?.Wall ?? "N";
+        var doorOffset = layout.Door?.Offset ?? 0d;
+        var doorWidth = layout.Door?.Width ?? 0d;
 
         double x;
         double z;
-        double yaw;
-        double dx;
-        double dz;
+        double yawDeg;
 
         switch (doorWall)
         {
             case "N":
-                x = Clamp(doorOffset + (doorWidth / 2.0), margin, roomWidth - margin);
-                z = Clamp(roomLength - 1.0, margin, roomLength - margin);
-                dx = 0.0;
-                dz = -1.0;
-                yaw = Math.Atan2(-dx, -dz) * 180.0 / Math.PI;
+                x = doorOffset + (doorWidth / 2d) - roomWidth / 2d;
+                z = roomLength / 2d - 0.8d;
+                yawDeg = 180d;
                 break;
             case "S":
-                x = Clamp(doorOffset + (doorWidth / 2.0), margin, roomWidth - margin);
-                z = Clamp(1.0, margin, roomLength - margin);
-                dx = 0.0;
-                dz = 1.0;
-                yaw = Math.Atan2(-dx, -dz) * 180.0 / Math.PI;
+                x = doorOffset + (doorWidth / 2d) - roomWidth / 2d;
+                z = -roomLength / 2d + 0.8d;
+                yawDeg = 0d;
                 break;
             case "E":
-                x = Clamp(roomWidth - 1.0, margin, roomWidth - margin);
-                z = Clamp(doorOffset + (doorWidth / 2.0), margin, roomLength - margin);
-                dx = -1.0;
-                dz = 0.0;
-                yaw = Math.Atan2(-dx, -dz) * 180.0 / Math.PI;
+                x = roomWidth / 2d - 0.8d;
+                z = doorOffset + (doorWidth / 2d) - roomLength / 2d;
+                yawDeg = 270d;
                 break;
             case "W":
-                x = Clamp(1.0, margin, roomWidth - margin);
-                z = Clamp(doorOffset + (doorWidth / 2.0), margin, roomLength - margin);
-                dx = 1.0;
-                dz = 0.0;
-                yaw = Math.Atan2(-dx, -dz) * 180.0 / Math.PI;
+                x = -roomWidth / 2d + 0.8d;
+                z = doorOffset + (doorWidth / 2d) - roomLength / 2d;
+                yawDeg = 90d;
                 break;
             default:
-                x = Clamp(roomWidth / 2.0, margin, roomWidth - margin);
-                z = Clamp(roomLength / 2.0, margin, roomLength - margin);
-                dx = 0.0;
-                dz = -1.0;
-                yaw = 0.0;
+                x = 0d;
+                z = 0d;
+                yawDeg = 0d;
                 break;
         }
 
-        return new RoomVrSpawn(x, 1.6, z, yaw);
+        var centerX = 0d;
+        var centerZ = 0d;
+        var lookAtX = centerX - x;
+        var lookAtZ = centerZ - z;
+        var yawToCenter = Math.Atan2(lookAtZ, lookAtX) * 180d / Math.PI;
+        if (double.IsNaN(yawToCenter) || double.IsInfinity(yawToCenter))
+        {
+            yawToCenter = yawDeg;
+        }
+
+        return new RoomVrSpawn(
+            X: x,
+            Y: 1.6,
+            Z: z,
+            YawDeg: yawToCenter);
     }
 
     private static IReadOnlyList<RoomVrPanel> BuildPanels(
@@ -180,18 +203,14 @@ public static class RoomVrSceneAssembler
         double width,
         double length)
     {
-        var wallX = width / 2.0;
-        var wallZ = length / 2.0;
+        var wallX = width / 2d;
 
         return
         [
-            new("area", "Área", $"{area:F0} m²", wallX - 0.25, 1.5, 0.4, 0),
+            new("area", "Área", string.Create(CultureInfo.InvariantCulture, $"{area:F0} m²"), wallX - 0.25, 1.5, 0.4, 0),
             new("floor", "Piso", floor, wallX - 0.25, 1.5, 1.2, 0),
             new("beds", "Camas", bedSummary, wallX - 0.25, 1.5, 2.0, 0),
-            new("capacity", "Capacidad", $"{guestCapacity} huésped(es)", wallX - 0.25, 1.5, 2.8, 0)
+            new("capacity", "Capacidad", string.Create(CultureInfo.InvariantCulture, $"{guestCapacity} huésped(es)"), wallX - 0.25, 1.5, 2.8, 0)
         ];
     }
-
-    private static double Clamp(double value, double min, double max)
-        => Math.Min(Math.Max(value, min), max);
 }

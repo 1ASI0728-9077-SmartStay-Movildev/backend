@@ -18,6 +18,13 @@ public interface IRoomCommandService
     Task<Room?> Handle(UpdateRoomCommand command);
 
     /// <summary>
+    /// Handles the update of a room layout.
+    /// </summary>
+    /// <param name="command">The command with the serialized layout.</param>
+    /// <returns>The updated room or null if not found.</returns>
+    Task<Room?> Handle(UpdateRoomLayoutCommand command);
+
+    /// <summary>
     /// Handles the deletion of a room.
     /// </summary>
     /// <param name="command">The delete command.</param>

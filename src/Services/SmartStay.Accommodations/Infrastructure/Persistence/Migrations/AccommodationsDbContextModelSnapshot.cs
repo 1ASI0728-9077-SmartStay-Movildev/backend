@@ -165,6 +165,11 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_bookable");
 
+                    b.Property<string>("Layout")
+                        .HasMaxLength(20000)
+                        .HasColumnType("json")
+                        .HasColumnName("layout");
+
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("price");
@@ -355,6 +360,11 @@ namespace SmartStay.Accommodations.Infrastructure.Persistence.Migrations
                         {
                             Id = 6,
                             Name = "Resort"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Name = "Departamento"
                         });
                 });
 

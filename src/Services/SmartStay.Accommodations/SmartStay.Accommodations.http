@@ -1,6 +1,57 @@
 @SmartStay.Accommodations_HostAddress = http://localhost:5200
 
-GET {{SmartStay.Accommodations_HostAddress}}/weatherforecast/
+### Buscar habitaciones
+GET {{SmartStay.Accommodations_HostAddress}}/api/v1/rooms/search?district=Lima&guests=2&minPrice=50&maxPrice=250&minArea=10&bedType=OnePlaza
+Accept: application/json
+
+### Obtener catálogo del layout
+GET {{SmartStay.Accommodations_HostAddress}}/api/v1/rooms/layout/catalog
+Accept: application/json
+
+### Previsualizar layout
+POST {{SmartStay.Accommodations_HostAddress}}/api/v1/rooms/layout/preview
+Content-Type: application/json
+
+{
+  "widthM": 4,
+  "lengthM": 5,
+  "heightM": 2.8,
+  "floor": "Wood",
+  "wallColor": "#F3E9D7",
+  "beds": [
+    { "type": "OnePlaza", "x": 2, "z": 1.5, "rotationDeg": 0 }
+  ],
+  "windows": [
+    { "wall": "N", "offset": 1, "width": 1.2 }
+  ],
+  "door": { "wall": "S", "offset": 0.5, "width": 0.9 }
+}
+
+### Guardar layout
+PUT {{SmartStay.Accommodations_HostAddress}}/api/v1/rooms/102/layout
+Content-Type: application/json
+
+{
+  "widthM": 4,
+  "lengthM": 5,
+  "heightM": 2.8,
+  "floor": "Wood",
+  "wallColor": "#F3E9D7",
+  "beds": [
+    { "type": "OnePlaza", "x": 2, "z": 1.5, "rotationDeg": 0 }
+  ],
+  "windows": [
+    { "wall": "N", "offset": 1, "width": 1.2 }
+  ],
+  "door": { "wall": "S", "offset": 0.5, "width": 0.9 }
+}
+
+### Obtener VR scene manifest
+GET {{SmartStay.Accommodations_HostAddress}}/api/v1/rooms/102/vr
+Accept: application/json
+
+### Obtener layout guardado
+GET {{SmartStay.Accommodations_HostAddress}}/api/v1/rooms/102/layout
 Accept: application/json
 
 ###

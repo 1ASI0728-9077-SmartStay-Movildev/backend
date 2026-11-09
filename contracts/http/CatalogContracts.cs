@@ -39,5 +39,8 @@ public sealed record RoomSearchResult(
     int Capacity,
     bool IsBookable,
     string? TourPath,
-    IReadOnlyList<string> Amenities
+    IReadOnlyList<string> Amenities,
+    double? AreaM2 = null,
+    string? BedSummary = null,
+    bool? HasVr = null
 );

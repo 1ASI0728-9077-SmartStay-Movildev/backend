@@ -44,7 +44,7 @@ public class RoomQueryService(IRoomRepository roomRepository)
         return rooms.Where(r => r.RoomTypeId == query.RoomTypeId);
     }
 
-    public async Task<IEnumerable<Room>> SearchRoomsAsync(string? district, int? guests, decimal? minPrice, decimal? maxPrice)
+    public async Task<IEnumerable<Room>> SearchRoomsAsync(string? district, int? guests, decimal? minPrice, decimal? maxPrice, double? minArea = null, string? bedType = null)
     {
         var rooms = await roomRepository.ListAsync();
         var result = rooms.Where(r => r.IsBookable);
@@ -69,6 +69,44 @@ public class RoomQueryService(IRoomRepository roomRepository)
         if (maxPrice.HasValue)
         {
             result = result.Where(r => r.Price <= maxPrice.Value);
+        }
+
+        if (minArea.HasValue)
+        {
+            result = result.Where(r =>
+            {
+                if (string.IsNullOrWhiteSpace(r.Layout))
+                {
+                    return false;
+                }
+
+                var layout = BackendAwSmartstay.API.Accommodations.Application.Internal.Services.RoomLayoutValidator.Deserialize(r.Layout);
+                if (layout is null)
+                {
+                    return false;
+                }
+
+                return layout.WidthM * layout.LengthM >= minArea.Value;
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(bedType))
+        {
+            result = result.Where(r =>
+            {
+                if (string.IsNullOrWhiteSpace(r.Layout))
+                {
+                    return false;
+                }
+
+                var layout = BackendAwSmartstay.API.Accommodations.Application.Internal.Services.RoomLayoutValidator.Deserialize(r.Layout);
+                if (layout is null)
+                {
+                    return false;
+                }
+
+                return layout.Beds.Any(b => b.Type.Equals(bedType, StringComparison.OrdinalIgnoreCase));
+            });
         }
 
         return result.OrderBy(r => r.Price).ThenBy(r => r.Id).ToList();

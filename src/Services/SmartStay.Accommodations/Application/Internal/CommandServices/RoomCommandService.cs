@@ -27,7 +27,6 @@ public class RoomCommandService(
         var room = await roomRepository.FindByIdAsync(command.Id);
         if (room is null) return null;
 
-        // Apply domain updates
         room.UpdateInformation(
             command.RoomTypeId,
             command.Price,
@@ -40,21 +39,24 @@ public class RoomCommandService(
         return room;
     }
 
-public async Task<Room?> Handle(DeleteRoomCommand command)
-{
-    // Find the room by its identifier
-    var room = await roomRepository.FindByIdAsync(command.Id);
+    public async Task<Room?> Handle(UpdateRoomLayoutCommand command)
+    {
+        var room = await roomRepository.FindByIdAsync(command.RoomId);
+        if (room is null) return null;
 
-    // Return null if the room does not exist
-    if (room is null) return null;
+        room.SetLayout(command.LayoutJson);
+        roomRepository.Update(room);
+        await unitOfWork.CompleteAsync();
+        return room;
+    }
 
-    // Remove the room from the repository
-    roomRepository.Remove(room);
+    public async Task<Room?> Handle(DeleteRoomCommand command)
+    {
+        var room = await roomRepository.FindByIdAsync(command.Id);
+        if (room is null) return null;
 
-    // Save the changes to the database
-    await unitOfWork.CompleteAsync();
-
-    // Return the deleted room
-    return room;
-}
+        roomRepository.Remove(room);
+        await unitOfWork.CompleteAsync();
+        return room;
+    }
 }
