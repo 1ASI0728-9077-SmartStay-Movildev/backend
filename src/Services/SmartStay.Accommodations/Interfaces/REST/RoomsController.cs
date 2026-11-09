@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using BackendAwSmartstay.API.Accommodations.Application.Internal.Services;
 using BackendAwSmartstay.API.Accommodations.Domain.Model.Commands;
 using BackendAwSmartstay.API.Accommodations.Domain.Model.Queries;
 using BackendAwSmartstay.API.Accommodations.Domain.Services;
@@ -52,6 +53,61 @@ public class RoomsController(
         ));
 
         return Ok(response);
+    }
+
+    [HttpGet("layout/catalog")]
+    [AllowAnonymous]
+    public IActionResult GetLayoutCatalog()
+    {
+        return Ok(RoomLayoutValidator.Catalog);
+    }
+
+    [HttpPost("layout/preview")]
+    [AllowAnonymous]
+    public IActionResult PreviewLayout([FromBody] RoomLayoutDto layout)
+    {
+        return Ok(RoomLayoutValidator.Validate(layout));
+    }
+
+    [HttpGet("{roomId:int}/layout")]
+    [AccommodationsAuthorize(UserRoles.Guest, UserRoles.Admin, UserRoles.ChainAdmin)]
+    public async Task<IActionResult> GetRoomLayout(int roomId)
+    {
+        var room = await roomQueryService.Handle(new GetRoomByIdQuery(roomId));
+        if (room is null) return NotFound();
+
+        var layout = RoomLayoutValidator.Deserialize(room.Layout);
+        if (layout is null) return Ok(new { roomId, areaM2 = 0, guestCapacity = 0, bedSummary = "Sin layout", message = "No hay layout definido" });
+
+        var preview = RoomLayoutValidator.Validate(layout);
+        return Ok(new {
+            roomId,
+            areaM2 = preview.AreaM2,
+            guestCapacity = preview.GuestCapacity,
+            bedSummary = preview.BedSummary,
+            errors = preview.Errors,
+            layout
+        });
+    }
+
+    [HttpPut("{roomId:int}/layout")]
+    [AccommodationsAuthorize(UserRoles.Admin, UserRoles.ChainAdmin)]
+    public async Task<IActionResult> SaveRoomLayout(int roomId, [FromBody] RoomLayoutDto layout)
+    {
+        var room = await roomQueryService.Handle(new GetRoomByIdQuery(roomId));
+        if (room is null) return NotFound();
+
+        var preview = RoomLayoutValidator.Validate(layout);
+        if (!preview.IsValid)
+        {
+            return BadRequest(new { errors = preview.Errors });
+        }
+
+        room.SetLayout(RoomLayoutValidator.Serialize(layout));
+        var saved = await roomCommandService.Handle(new UpdateRoomCommand(roomId, room.RoomTypeId, room.Price, room.Description, room.Amenities));
+        if (saved is null) return NotFound();
+
+        return Ok(new { roomId, areaM2 = preview.AreaM2, guestCapacity = preview.GuestCapacity, bedSummary = preview.BedSummary, layout });
     }
 
     [HttpGet("{roomId:int}/tour")]
