@@ -32,10 +32,10 @@ const emit = defineEmits<{
   (e: 'close'): void;
 }>();
 
-const host = ref<HTMLDivElement>();
+const host = ref<HTMLDivElement | null>(null);
 const loading = ref(true);
 const errorMessage = ref<string | null>(null);
-let viewer: Viewer | undefined;
+let viewer: Viewer | null = null;
 
 async function loadTour() {
   if (!host.value) return;
@@ -46,7 +46,7 @@ async function loadTour() {
 
     if (viewer) {
       viewer.destroy();
-      viewer = undefined;
+      viewer = null;
     }
 
     const response = await fetch(`/api/v1/rooms/${props.roomId}/tour`);
