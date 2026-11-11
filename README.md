@@ -37,6 +37,82 @@ Los servicios se ejecutan en Docker Compose local. Solo MySQL está alojado remo
 
 ## 3. Configuración y arranque
 
+### Encender SmartStay para la demo desde Rider
+
+El Compose actual ya conecta las seis APIs con persistencia a filess.io mediante `MYSQL_CONNECTION_STRING` en `.env`; Concierge no usa base de datos. No hace falta un Compose adicional. Si falta esa variable en otra instalación, complétala únicamente en el `.env` local con los datos del proveedor, sin compartir contraseñas ni subir el archivo a Git.
+
+Sigue estos pasos cada día que quieras mostrar la demo. Las imágenes locales deben estar construidas y la base remota ya inicializada.
+
+1. Abre **Docker Desktop**, usa contenedores Linux y espera a que el motor esté listo.
+
+2. Abre el proyecto `backend` en Rider y entra en **View → Tool Windows → Terminal**. Selecciona **PowerShell** y comprueba que estás en la raíz de `backend`, donde está `compose.microservices.yml`.
+
+3. Valida la configuración y enciende los siete microservicios, ActiveMQ y Nginx:
+
+    ```powershell
+    docker compose -f compose.microservices.yml config --quiet
+    docker compose -f compose.microservices.yml up -d --no-deps --no-build --wait activemq iam accommodations bookings payments profiles analytics concierge
+    docker compose -f compose.microservices.yml up -d --no-deps --no-build gateway
+    docker compose -f compose.microservices.yml restart gateway
+    docker compose -f compose.microservices.yml ps
+    ```
+
+    Enumerar los servicios con `--no-deps` omite `migrate`; `--no-build` reutiliza las imágenes existentes. Reiniciar el gateway renueva las direcciones internas de las APIs que Nginx mantiene en memoria. Estos comandos conservan el volumen de ActiveMQ y no ejecutan migraciones ni sembrado. No uses el arranque genérico de la sección de instalación para esta demo, porque incluye `migrate`.
+
+4. Comprueba el backend local y la lectura del catálogo de filess.io:
+
+    ```powershell
+    Invoke-RestMethod 'http://localhost:8080/health'
+    Invoke-RestMethod 'http://localhost:8080/api/v1/rooms/search?district=Lima&guests=2'
+    ```
+
+    La primera consulta debe devolver `Healthy`; la segunda debe mostrar habitaciones del catálogo remoto. Si falla alguna, revisa `docker compose -f compose.microservices.yml logs --tail 50 gateway iam accommodations` y agrega el servicio afectado si corresponde.
+
+5. Abre el túnel HTTPS desde la terminal de Rider. Esta ruta corresponde a la instalación de Windows y funciona aunque `cloudflared` no esté en el PATH:
+
+    ```powershell
+    & 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel --url http://localhost:8080
+    ```
+
+    El túnel apunta únicamente al gateway. No abras túneles para MySQL, ActiveMQ ni las APIs individuales.
+
+6. Copia la dirección `https://<nombre-aleatorio>.trycloudflare.com` que aparezca en la terminal. En otra terminal PowerShell, sustituye el ejemplo por la dirección real y comprueba:
+
+    ```powershell
+    $baseUrl = 'https://<nombre-aleatorio>.trycloudflare.com'
+    Invoke-RestMethod "$baseUrl/health"
+    ```
+
+    Debe responder `Healthy`. También puedes abrir la dirección pública con `/health` en un navegador.
+
+7. Usa esa dirección HTTPS **sin `/health`** como URL base del frontend en WebStorm. Conserva las rutas de la API, por ejemplo `$baseUrl/api/v1/rooms/search?district=Lima&guests=2`. La dirección cambia cada vez que creas un túnel nuevo: actualiza la URL base del frontend y no guardes el ejemplo como dirección permanente. No necesitas cambiar el código de los microservicios para cada URL temporal.
+
+8. Durante la demo, mantén la PC encendida, conectada a Internet y sin suspender. Deja Docker Desktop activo y la terminal del túnel abierta. Quick Tunnels no requiere cuenta ni dominio de Cloudflare.
+
+9. Para apagar la demo, pulsa **Ctrl+C** en la terminal del túnel y luego ejecuta en PowerShell:
+
+    ```powershell
+    docker compose -f compose.microservices.yml stop
+    ```
+
+    La URL pública dejará de funcionar. Los contenedores quedarán detenidos y se conservarán el volumen de ActiveMQ y los datos remotos de filess.io. Para volver a encender, repite los pasos anteriores.
+
+### Instalar Cloudflare Tunnel una sola vez
+
+En esta PC `cloudflared` ya está instalado. En otro equipo, si no existe `C:\Program Files (x86)\cloudflared\cloudflared.exe` ni se reconoce `Get-Command cloudflared`, instala:
+
+```powershell
+winget install --id Cloudflare.cloudflared --exact --source winget
+```
+
+Comprueba la instalación con `& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' --version`. Si el instalador usa otra ubicación, utiliza la ruta real del ejecutable. Si prefieres usar `cloudflared` sin la ruta completa, abre otra terminal después de instalar y reinicia Rider si todavía no reconoce el PATH. No necesitas reinstalarlo cada día.
+
+Referencias: [Quick Tunnels de Cloudflare](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/), [paquete cloudflared de WinGet](https://github.com/microsoft/winget-pkgs/tree/master/manifests/c/Cloudflare/cloudflared).
+
+### Instalación inicial y cambios de esquema
+
+Esta sección se usa al preparar una base nueva o aplicar cambios de esquema; no es el procedimiento del día de clase con la base ya configurada.
+
 La configuración real está en `.env`, ignorado por Git y excluido de los contextos Docker. No publiques ese archivo ni la salida completa de `docker compose config`, que contiene secretos. Si ya tienes `.env`, no lo sobrescribas. En una nueva instalación, copia `.env.example` a `.env` y completa `MYSQL_CONNECTION_STRING` con host, puerto, usuario, contraseña y base proporcionados por filess.io. Conserva `SslMode=Required;Pooling=false;`.
 
 Desde la raíz del repositorio, en PowerShell o Bash:
