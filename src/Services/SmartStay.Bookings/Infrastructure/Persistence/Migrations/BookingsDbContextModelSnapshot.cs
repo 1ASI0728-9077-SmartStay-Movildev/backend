@@ -144,9 +144,9 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("ConsumerName", "EventId")
-                        .HasName("pk_inbox_messages");
+                        .HasName("pk_bookings_inbox_messages");
 
-                    b.ToTable("inbox_messages", (string)null);
+                    b.ToTable("bookings_inbox_messages", (string)null);
                 });
 
             modelBuilder.Entity("SmartStay.Bookings.Domain.Model.Entities.RoomNightLock", b =>

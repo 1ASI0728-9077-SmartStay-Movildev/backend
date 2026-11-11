@@ -37,11 +37,15 @@ builder.Services.AddCors(options =>
 // Database
 var connectionString = builder.Configuration.GetConnectionString("BookingsConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_bookings;";
+    ?? throw new InvalidOperationException("Configure ConnectionStrings__BookingsConnection.");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("Configure the service database connection string.");
 
 builder.Services.AddDbContext<BookingsDbContext>(options =>
 {
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
+        mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_bookings"));
 });
 
 // Unit of Work

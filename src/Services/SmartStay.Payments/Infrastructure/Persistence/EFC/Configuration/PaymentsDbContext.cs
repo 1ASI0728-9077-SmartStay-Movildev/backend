@@ -47,7 +47,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
         builder.Entity<OutboxMessage>().HasIndex(m => new { m.PublishedAtUtc, m.NextAttemptAtUtc }, "ix_outbox_polling");
 
         // InboxMessage Entity
-        builder.Entity<InboxMessage>().ToTable("inbox_messages");
+        builder.Entity<InboxMessage>().ToTable("payments_inbox_messages");
         builder.Entity<InboxMessage>().HasKey(m => new { m.ConsumerName, m.EventId });
         builder.Entity<InboxMessage>().Property(m => m.ConsumerName).IsRequired().HasMaxLength(50);
         builder.Entity<InboxMessage>().Property(m => m.EventType).IsRequired().HasMaxLength(150);

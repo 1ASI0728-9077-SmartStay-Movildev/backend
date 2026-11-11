@@ -1,85 +1,153 @@
 # SmartStay — Plataforma de Hospedaje y Descubrimiento Asistido (Microservicios & MVP 7 Días)
 
-SmartStay es una plataforma hotelera moderna construida sobre una arquitectura de **microservicios autónomos en .NET 9**, con persistencia segregada en **MySQL 8**, mensajería asíncrona mediante **Apache ActiveMQ Artemis**, pasarela perimetral con **Nginx**, asistencia conversacional basada en **DeepSeek con garantías estrictas de precio de servidor**, recorridos virtuales **360° interactivos** y compartición P2P descentralizada mediante **Google Nearby Connections (Android)**.
+SmartStay es una plataforma hotelera moderna construida sobre una arquitectura de **microservicios autónomos en .NET 9**, con persistencia en una **base MySQL compartida en filess.io para la demo académica**, mensajería asíncrona mediante **Apache ActiveMQ Artemis**, pasarela perimetral con **Nginx**, asistencia conversacional basada en **DeepSeek con garantías estrictas de precio de servidor**, recorridos virtuales **360° interactivos** y compartición P2P descentralizada mediante **Google Nearby Connections (Android)**.
 
 ---
 
 ## 1. Arquitectura del Sistema
 
+```text
+Clientes -> Nginx Gateway -> 7 microservicios .NET
+                              |          |
+                     MySQL filess.io   ActiveMQ
+                     (base compartida)
 ```
-                                  [ Clientes: Web (Vue 3) / Móvil (Android) ]
-                                                       │
-                                                       ▼
-                                         ┌───────────────────────────┐
-                                         │   Nginx API Gateway       │
-                                         │   (Rate Limiting & Proxy) │
-                                         │   Puerto 8080             │
-                                         └─────────────┬─────────────┘
-                                                       │
-         ┌──────────────────┬──────────────────┬───────┴──────────┬──────────────────┬──────────────────┐
-         ▼                  ▼                  ▼                  ▼                  ▼                  ▼
-┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐
-│ SmartStay.IAM   ││ Accommodations  ││   Bookings      ││ SmartStay.      ││    Payments     ││   Analytics     │
-│ Autenticación   ││ Catálogo &      ││ Reservas,       ││   Concierge     ││  Idempotencia   ││  Proyecciones   │
-│ & Roles JWT     ││ Tour 360°       ││ Concurrencia    ││ IA Grounding &  ││ & Outbox        ││ & Métricas      │
-│                 ││                 ││ & TTL Worker    ││ Precios Server  ││                 ││                 │
-└────────┬────────┘└────────┬────────┘└────────┬────────┘└────────┬────────┘└────────┬────────┘└────────┬────────┘
-         │                  │                  │                  │                  │                  │
-         │                  │                  │                  │                  ▼                  ▼
-         │                  │                  │                  │          ┌────────────────────────────┐
-         │                  │                  │                  │          │   ActiveMQ Artemis (AMQP)  │
-         │                  │                  │                  │          └────────────────────────────┘
-         ▼                  ▼                  ▼                  ▼                         │
-   smartstay_iam      accommodations        bookings           (Stateless)                  ▼
-         │                  │                  │                                    payments / analytics
-         └──────────────────┴──────────────────┴────────────────────────────────────────────┘
-                                        MySQL 8 (Esquemas Lógicos Aislados)
-```
+
+Los servicios se ejecutan en Docker Compose local. Solo MySQL está alojado remotamente. Cada servicio usa sus propias tablas e historial de migraciones; Concierge no usa base de datos. Esta configuración comparte credenciales y almacenamiento como simplificación académica.
 
 ### Microservicios Desarrollados
 
 | Microservicio | Responsabilidad | Base de Datos | Rutas Perimetrales |
 |---|---|---|---|
-| **SmartStay.IAM** | Autenticación de usuarios, emisión de JWT y validación interna. | `smartstay_iam` | `/api/v1/authentication`, `/api/v1/users` |
-| **SmartStay.Accommodations** | Catálogo de hoteles, habitaciones y manifiestos de Recorrido 360°. | `smartstay_accommodations` | `/api/v1/rooms`, `/api/v1/hotels`, `/tours` |
-| **SmartStay.Bookings** | Creación de reservas, exclusión física de noches (`room_night_locks`), expiración TTL y control de propiedad. | `smartstay_bookings` | `/api/v1/bookings` |
+| **SmartStay.IAM** | Autenticación de usuarios, emisión de JWT y validación interna. | Base compartida filess.io | `/api/v1/authentication`, `/api/v1/users` |
+| **SmartStay.Accommodations** | Catálogo de hoteles, habitaciones y manifiestos de Recorrido 360°. | Base compartida filess.io | `/api/v1/rooms`, `/api/v1/hotels`, `/tours` |
+| **SmartStay.Bookings** | Creación de reservas, exclusión física de noches (`room_night_locks`), expiración TTL y control de propiedad. | Base compartida filess.io | `/api/v1/bookings` |
 | **SmartStay.Concierge** | Asistente inteligente con DeepSeek; valida presupuestos y precios autoritativos de servidor. | Stateless / Memoria | `/api/v1/concierge` |
-| **SmartStay.Payments** | Pagos simulados con clave de idempotencia, outbox y compensación de reembolsos. | `smartstay_payments` | `/api/v1/payments` |
-| **SmartStay.Profiles** | Gestión de perfiles de huéspedes y administradores. | `smartstay_profiles` | `/api/v1/profiles` |
-| **SmartStay.Analytics** | Proyecciones autónomas y métricas de negocio. | `smartstay_analytics` | `/api/v1/analytics` |
+| **SmartStay.Payments** | Pagos simulados con clave de idempotencia, outbox y compensación de reembolsos. | Base compartida filess.io | `/api/v1/payments` |
+| **SmartStay.Profiles** | Gestión de perfiles de huéspedes y administradores. | Base compartida filess.io | `/api/v1/profiles` |
+| **SmartStay.Analytics** | Proyecciones autónomas y métricas de negocio. | Base compartida filess.io | `/api/v1/analytics` |
 
 ---
 
 ## 2. Requisitos Previos
 
-- **Docker** 24.0+ y **Docker Compose** v2
-- **.NET SDK 9.0** (para desarrollo y pruebas locales)
-- **curl** y **bash** (para scripts de automatización)
+- Docker Desktop con contenedores Linux y Docker Compose v2.
+- Acceso a una base MySQL de filess.io y conexión a Internet.
+- Para scripts opcionales: Bash y curl; no necesitas instalar MySQL ni .NET en tu equipo.
 
----
+## 3. Configuración y arranque
 
-## 3. Puesta en Marcha en 1 Solo Paso
+### Encender SmartStay para la demo desde Rider
 
-Desde la raíz del repositorio, ejecute:
+El Compose actual ya conecta las seis APIs con persistencia a filess.io mediante `MYSQL_CONNECTION_STRING` en `.env`; Concierge no usa base de datos. No hace falta un Compose adicional. Si falta esa variable en otra instalación, complétala únicamente en el `.env` local con los datos del proveedor, sin compartir contraseñas ni subir el archivo a Git.
 
-```bash
-# 1. Construir y levantar todos los microservicios, MySQL, ActiveMQ y Nginx Gateway
+Sigue estos pasos cada día que quieras mostrar la demo. Las imágenes locales deben estar construidas y la base remota ya inicializada.
+
+1. Abre **Docker Desktop**, usa contenedores Linux y espera a que el motor esté listo.
+
+2. Abre el proyecto `backend` en Rider y entra en **View → Tool Windows → Terminal**. Selecciona **PowerShell** y comprueba que estás en la raíz de `backend`, donde está `compose.microservices.yml`.
+
+3. Valida la configuración y enciende los siete microservicios, ActiveMQ y Nginx:
+
+    ```powershell
+    docker compose -f compose.microservices.yml config --quiet
+    docker compose -f compose.microservices.yml up -d --no-deps --no-build --wait activemq iam accommodations bookings payments profiles analytics concierge
+    docker compose -f compose.microservices.yml up -d --no-deps --no-build gateway
+    docker compose -f compose.microservices.yml restart gateway
+    docker compose -f compose.microservices.yml ps
+    ```
+
+    Enumerar los servicios con `--no-deps` omite `migrate`; `--no-build` reutiliza las imágenes existentes. Reiniciar el gateway renueva las direcciones internas de las APIs que Nginx mantiene en memoria. Estos comandos conservan el volumen de ActiveMQ y no ejecutan migraciones ni sembrado. No uses el arranque genérico de la sección de instalación para esta demo, porque incluye `migrate`.
+
+4. Comprueba el backend local y la lectura del catálogo de filess.io:
+
+    ```powershell
+    Invoke-RestMethod 'http://localhost:8080/health'
+    Invoke-RestMethod 'http://localhost:8080/api/v1/rooms/search?district=Lima&guests=2'
+    ```
+
+    La primera consulta debe devolver `Healthy`; la segunda debe mostrar habitaciones del catálogo remoto. Si falla alguna, revisa `docker compose -f compose.microservices.yml logs --tail 50 gateway iam accommodations` y agrega el servicio afectado si corresponde.
+
+5. Abre el túnel HTTPS desde la terminal de Rider. Esta ruta corresponde a la instalación de Windows y funciona aunque `cloudflared` no esté en el PATH:
+
+    ```powershell
+    & 'C:\Program Files (x86)\cloudflared\cloudflared.exe' tunnel --url http://localhost:8080
+    ```
+
+    El túnel apunta únicamente al gateway. No abras túneles para MySQL, ActiveMQ ni las APIs individuales.
+
+6. Copia la dirección `https://<nombre-aleatorio>.trycloudflare.com` que aparezca en la terminal. En otra terminal PowerShell, sustituye el ejemplo por la dirección real y comprueba:
+
+    ```powershell
+    $baseUrl = 'https://<nombre-aleatorio>.trycloudflare.com'
+    Invoke-RestMethod "$baseUrl/health"
+    ```
+
+    Debe responder `Healthy`. También puedes abrir la dirección pública con `/health` en un navegador.
+
+7. Usa esa dirección HTTPS **sin `/health`** como URL base del frontend en WebStorm. Conserva las rutas de la API, por ejemplo `$baseUrl/api/v1/rooms/search?district=Lima&guests=2`. La dirección cambia cada vez que creas un túnel nuevo: actualiza la URL base del frontend y no guardes el ejemplo como dirección permanente. No necesitas cambiar el código de los microservicios para cada URL temporal.
+
+8. Durante la demo, mantén la PC encendida, conectada a Internet y sin suspender. Deja Docker Desktop activo y la terminal del túnel abierta. Quick Tunnels no requiere cuenta ni dominio de Cloudflare.
+
+9. Para apagar la demo, pulsa **Ctrl+C** en la terminal del túnel y luego ejecuta en PowerShell:
+
+    ```powershell
+    docker compose -f compose.microservices.yml stop
+    ```
+
+    La URL pública dejará de funcionar. Los contenedores quedarán detenidos y se conservarán el volumen de ActiveMQ y los datos remotos de filess.io. Para volver a encender, repite los pasos anteriores.
+
+### Instalar Cloudflare Tunnel una sola vez
+
+En esta PC `cloudflared` ya está instalado. En otro equipo, si no existe `C:\Program Files (x86)\cloudflared\cloudflared.exe` ni se reconoce `Get-Command cloudflared`, instala:
+
+```powershell
+winget install --id Cloudflare.cloudflared --exact --source winget
+```
+
+Comprueba la instalación con `& 'C:\Program Files (x86)\cloudflared\cloudflared.exe' --version`. Si el instalador usa otra ubicación, utiliza la ruta real del ejecutable. Si prefieres usar `cloudflared` sin la ruta completa, abre otra terminal después de instalar y reinicia Rider si todavía no reconoce el PATH. No necesitas reinstalarlo cada día.
+
+Referencias: [Quick Tunnels de Cloudflare](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/), [paquete cloudflared de WinGet](https://github.com/microsoft/winget-pkgs/tree/master/manifests/c/Cloudflare/cloudflared).
+
+### Instalación inicial y cambios de esquema
+
+Esta sección se usa al preparar una base nueva o aplicar cambios de esquema; no es el procedimiento del día de clase con la base ya configurada.
+
+La configuración real está en `.env`, ignorado por Git y excluido de los contextos Docker. No publiques ese archivo ni la salida completa de `docker compose config`, que contiene secretos. Si ya tienes `.env`, no lo sobrescribas. En una nueva instalación, copia `.env.example` a `.env` y completa `MYSQL_CONNECTION_STRING` con host, puerto, usuario, contraseña y base proporcionados por filess.io. Conserva `SslMode=Required;Pooling=false;`.
+
+Desde la raíz del repositorio, en PowerShell o Bash:
+
+```sh
+# Validar la configuración sin mostrar secretos
+docker compose -f compose.microservices.yml config --quiet
+
+# Construir el administrador de la base y comprobar conexión, TLS y tablas
+docker compose -f compose.microservices.yml build migrate
+docker compose -f compose.microservices.yml run --rm migrate check
+
+# Crear/actualizar los esquemas secuencialmente
+docker compose -f compose.microservices.yml run --rm migrate migrate
+
+# Opcional: agregar usuarios de demostración sin borrar datos existentes
+docker compose -f compose.microservices.yml run --rm migrate seed
+
+# Iniciar servicios y gateway (las migraciones también se ejecutan antes de las APIs)
 docker compose -f compose.microservices.yml up --build -d
-
-# 2. Verificar que todos los contenedores reporten estado 'healthy'
+# Al actualizar APIs, renovar las direcciones internas que Nginx mantiene en memoria
+docker compose -f compose.microservices.yml restart gateway
 docker compose -f compose.microservices.yml ps
+docker compose -f compose.microservices.yml logs --tail 50 iam bookings
 ```
 
----
+El gateway responde en `http://localhost:8080` (salud: `/health`). Para detenerlo: `docker compose -f compose.microservices.yml down`. No se elimina ninguna base remota. Los volúmenes MySQL antiguos no se usan ni se borran automáticamente.
 
-## 4. Inicialización de Datos y Pruebas End-to-End
+El migrador rechaza bases con estructuras ajenas. Completa todas las migraciones de un servicio antes del siguiente porque las migraciones históricas crean temporalmente `inbox_messages` y luego la renombran para cada propietario. No ejecutes migraciones de varios servicios en paralelo. Las tres tablas finales son `bookings_inbox_messages`, `payments_inbox_messages` y `analytics_inbox_messages`; cada servicio tiene `__EFMigrationsHistory_<servicio>`.
 
-### Sembrado Automatizado del Fixture (Idempotente)
-Configura usuarios de prueba en IAM (Admin Hotel 1, Admin Hotel 2, Guest 1, Guest 2) y verifica la autenticación HTTP:
+El plan gratuito tiene límites de espacio y conexiones: usa pocos datos y una sola instancia por API. Desactivar pooling evita conexiones ociosas, pero no elimina el límite de concurrencia. La configuración deja de usar MySQL local; no publica automáticamente los contenedores en Internet. El alojamiento del backend, dominio y HTTPS se configuran en el siguiente paso.
 
-```bash
-bash tools/seed-mvp.sh
-```
+## 4. Datos de demostración y pruebas End-to-End
+
+Las migraciones incluyen el catálogo inicial. El comando `seed` agrega usuarios faltantes con contraseña `Password123!`, sin restablecer contraseñas ni eliminar reservas o pagos. Repetirlo conserva los registros existentes. Como alternativa desde Bash: `bash tools/seed-mvp.sh`. Para aplicar migraciones: `bash tools/migrate-all.sh`.
 
 ### Ejecución de Pruebas de Humo (End-to-End)
 Ejecuta la suite integral de 13 pasos validando:

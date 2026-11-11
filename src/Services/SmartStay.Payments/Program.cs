@@ -38,11 +38,15 @@ builder.Services.AddCors(options =>
 // Database
 var connectionString = builder.Configuration.GetConnectionString("PaymentsConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_payments;";
+    ?? throw new InvalidOperationException("Configure ConnectionStrings__PaymentsConnection.");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("Configure the service database connection string.");
 
 builder.Services.AddDbContext<PaymentsDbContext>(options =>
 {
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
+        mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_payments"));
 });
 
 // Unit of Work

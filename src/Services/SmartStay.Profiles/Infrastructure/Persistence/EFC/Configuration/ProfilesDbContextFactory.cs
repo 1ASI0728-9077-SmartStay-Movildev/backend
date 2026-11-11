@@ -9,11 +9,12 @@ public class ProfilesDbContextFactory : IDesignTimeDbContextFactory<ProfilesDbCo
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ProfilesConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_profiles;";
+            ?? throw new InvalidOperationException("Configure ConnectionStrings__ProfilesConnection.");
 
         var optionsBuilder = new DbContextOptionsBuilder<ProfilesDbContext>();
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        var serverVersion = ServerVersion.AutoDetect(connectionString);
+        optionsBuilder.UseMySql(connectionString, serverVersion,
+            mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_profiles"));
 
         return new ProfilesDbContext(optionsBuilder.Options);
     }

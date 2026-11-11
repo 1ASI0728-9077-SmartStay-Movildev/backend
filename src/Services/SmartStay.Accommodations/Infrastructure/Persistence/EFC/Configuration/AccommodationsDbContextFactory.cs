@@ -12,11 +12,12 @@ public class AccommodationsDbContextFactory : IDesignTimeDbContextFactory<Accomm
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__AccommodationsConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_accommodations;";
+            ?? throw new InvalidOperationException("Configure ConnectionStrings__AccommodationsConnection.");
 
         var optionsBuilder = new DbContextOptionsBuilder<AccommodationsDbContext>();
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        var serverVersion = ServerVersion.AutoDetect(connectionString);
+        optionsBuilder.UseMySql(connectionString, serverVersion,
+            mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_accommodations"));
 
         return new AccommodationsDbContext(optionsBuilder.Options);
     }
