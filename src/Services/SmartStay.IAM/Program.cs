@@ -40,11 +40,15 @@ builder.Services.AddCors(options =>
 // Database
 var connectionString = builder.Configuration.GetConnectionString("IamConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_iam;";
+    ?? throw new InvalidOperationException("Configure ConnectionStrings__IamConnection.");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("Configure the service database connection string.");
 
 builder.Services.AddDbContext<IamDbContext>(options =>
 {
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
+        mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_iam"));
 });
 
 // Settings

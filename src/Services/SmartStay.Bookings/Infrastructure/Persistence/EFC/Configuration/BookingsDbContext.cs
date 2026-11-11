@@ -54,7 +54,7 @@ public sealed class BookingsDbContext(DbContextOptions<BookingsDbContext> option
             .HasIndex(l => l.BookingId, "ix_room_night_booking");
 
         // InboxMessage Entity (Consumo idempotente de eventos)
-        builder.Entity<InboxMessage>().ToTable("inbox_messages");
+        builder.Entity<InboxMessage>().ToTable("bookings_inbox_messages");
         builder.Entity<InboxMessage>().HasKey(m => new { m.ConsumerName, m.EventId });
         builder.Entity<InboxMessage>().Property(m => m.ConsumerName).IsRequired().HasMaxLength(50);
         builder.Entity<InboxMessage>().Property(m => m.EventType).IsRequired().HasMaxLength(150);

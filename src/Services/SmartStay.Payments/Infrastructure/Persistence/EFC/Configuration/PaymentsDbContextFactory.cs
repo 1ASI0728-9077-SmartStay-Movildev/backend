@@ -9,11 +9,12 @@ public class PaymentsDbContextFactory : IDesignTimeDbContextFactory<PaymentsDbCo
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__PaymentsConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_payments;";
+            ?? throw new InvalidOperationException("Configure ConnectionStrings__PaymentsConnection.");
 
         var optionsBuilder = new DbContextOptionsBuilder<PaymentsDbContext>();
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        var serverVersion = ServerVersion.AutoDetect(connectionString);
+        optionsBuilder.UseMySql(connectionString, serverVersion,
+            mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_payments"));
 
         return new PaymentsDbContext(optionsBuilder.Options);
     }

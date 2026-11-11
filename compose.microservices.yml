@@ -1,32 +1,11 @@
 services:
-  mysql:
-    image: mysql:8.0.36
-    container_name: smartstay-mysql
-    restart: unless-stopped
+  migrate:
+    build:
+      context: .
+      dockerfile: tools/SmartStay.Database/Dockerfile
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-backend-smartstay-db}
-      MYSQL_USER: ${MYSQL_USER:-smartstay_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smartstay_password}
-    ports:
-    - ${MYSQL_PORT:-3306}:3306
-    volumes:
-    - mysql_data:/var/lib/mysql
-    - ./deploy/mysql/init-scripts:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test:
-      - CMD
-      - mysqladmin
-      - ping
-      - -h
-      - 127.0.0.1
-      - -u
-      - root
-      - -prootpassword
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+      ConnectionStrings__DefaultConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+    restart: "no"
   activemq:
     image: apache/activemq-classic:5.18.3
     container_name: smartstay-activemq
@@ -74,14 +53,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__IamConnection: server=mysql;port=3306;user=iam_user;password=iam_pass;database=smartstay_iam;
+      ConnectionStrings__IamConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
       TokenSettings__Secret: ${JWT_SECRET:-EstaEsUnaClaveSecretaMuyLargaYSeguraParaSmartStay123!}
       TokenSettings__Audience: ${JWT_AUDIENCE:-http://localhost:5173}
       TokenSettings__Issuer: ${JWT_ISSUER:-http://localhost:5192}
       TokenSettings__ExpirationInHours: ${JWT_EXPIRATION_HOURS:-24}
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
       - CMD
@@ -103,11 +82,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AccommodationsConnection: server=mysql;port=3306;user=accommodations_user;password=accommodations_pass;database=smartstay_accommodations;
+      ConnectionStrings__AccommodationsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
       Services__IamUrl: http://iam:8080
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       iam:
         condition: service_started
     healthcheck:
@@ -131,13 +110,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__BookingsConnection: server=mysql;port=3306;user=bookings_user;password=bookings_pass;database=smartstay_bookings;
+      ConnectionStrings__BookingsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
       Services__AccommodationsUrl: http://accommodations:8080
       Services__IamUrl: http://iam:8080
       ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       activemq:
         condition: service_healthy
       iam:
@@ -165,13 +144,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__PaymentsConnection: server=mysql;port=3306;user=payments_user;password=payments_pass;database=smartstay_payments;
+      ConnectionStrings__PaymentsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
       Services__BookingsUrl: http://bookings:8080
       Services__IamUrl: http://iam:8080
       ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       activemq:
         condition: service_healthy
       iam:
@@ -199,11 +178,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__ProfilesConnection: server=mysql;port=3306;user=profiles_user;password=profiles_pass;database=smartstay_profiles;
+      ConnectionStrings__ProfilesConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
       Services__IamUrl: http://iam:8080
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       iam:
         condition: service_started
     healthcheck:
@@ -227,12 +206,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AnalyticsConnection: server=mysql;port=3306;user=analytics_user;password=analytics_pass;database=smartstay_analytics;
+      ConnectionStrings__AnalyticsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
       Services__IamUrl: http://iam:8080
       ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       activemq:
         condition: service_healthy
       iam:
@@ -282,90 +261,5 @@ services:
       start_period: 15s
     expose:
     - '8080'
-  iam-migrate:
-    image: mysql:8.0.36
-    profiles:
-    - migration
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-    - ./artifacts/migrations:/migrations:ro
-    entrypoint:
-    - sh
-    - -c
-    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_iam
-      < /migrations/iam.sql
-  accommodations-migrate:
-    image: mysql:8.0.36
-    profiles:
-    - migration
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-    - ./artifacts/migrations:/migrations:ro
-    entrypoint:
-    - sh
-    - -c
-    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_accommodations
-      < /migrations/accommodations.sql
-  bookings-migrate:
-    image: mysql:8.0.36
-    profiles:
-    - migration
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-    - ./artifacts/migrations:/migrations:ro
-    entrypoint:
-    - sh
-    - -c
-    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_bookings
-      < /migrations/bookings.sql
-  payments-migrate:
-    image: mysql:8.0.36
-    profiles:
-    - migration
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-    - ./artifacts/migrations:/migrations:ro
-    entrypoint:
-    - sh
-    - -c
-    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_payments
-      < /migrations/payments.sql
-  profiles-migrate:
-    image: mysql:8.0.36
-    profiles:
-    - migration
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-    - ./artifacts/migrations:/migrations:ro
-    entrypoint:
-    - sh
-    - -c
-    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_profiles
-      < /migrations/profiles.sql
-  analytics-migrate:
-    image: mysql:8.0.36
-    profiles:
-    - migration
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-    - ./artifacts/migrations:/migrations:ro
-    entrypoint:
-    - sh
-    - -c
-    - mysql -h mysql -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} smartstay_analytics
-      < /migrations/analytics.sql
 volumes:
-  mysql_data: null
   activemq_data: null
