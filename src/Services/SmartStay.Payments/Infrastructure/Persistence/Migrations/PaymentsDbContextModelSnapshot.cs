@@ -122,9 +122,9 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("ConsumerName", "EventId")
-                        .HasName("pk_inbox_messages");
+                        .HasName("pk_payments_inbox_messages");
 
-                    b.ToTable("inbox_messages", (string)null);
+                    b.ToTable("payments_inbox_messages", (string)null);
                 });
 
             modelBuilder.Entity("SmartStay.Payments.Domain.Model.Entities.OutboxMessage", b =>

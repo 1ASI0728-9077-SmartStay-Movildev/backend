@@ -21,7 +21,8 @@ public static class WebApplicationBuilderExtensions
         {
             builder.Services.AddDbContext<AccommodationsDbContext>(options =>
             {
-                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
+                    mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_accommodations"));
             });
         }
 
