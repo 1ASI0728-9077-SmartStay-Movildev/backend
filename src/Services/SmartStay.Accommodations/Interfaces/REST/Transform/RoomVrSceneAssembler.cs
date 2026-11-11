@@ -147,52 +147,49 @@ public static class RoomVrSceneAssembler
 
         double x;
         double z;
-        double yawDeg;
+
+        const double marginFromWall = 0.3d;
+        const double eyeHeight = 1.6d;
+        const double doorLookOffset = 1.0d;
 
         switch (doorWall)
         {
             case "N":
                 x = doorOffset + (doorWidth / 2d) - roomWidth / 2d;
-                z = roomLength / 2d - 0.8d;
-                yawDeg = 180d;
+                z = -roomLength / 2d + doorLookOffset;
                 break;
             case "S":
                 x = doorOffset + (doorWidth / 2d) - roomWidth / 2d;
-                z = -roomLength / 2d + 0.8d;
-                yawDeg = 0d;
+                z = roomLength / 2d - doorLookOffset;
                 break;
             case "E":
-                x = roomWidth / 2d - 0.8d;
+                x = roomWidth / 2d - doorLookOffset;
                 z = doorOffset + (doorWidth / 2d) - roomLength / 2d;
-                yawDeg = 270d;
                 break;
             case "W":
-                x = -roomWidth / 2d + 0.8d;
+                x = -roomWidth / 2d + doorLookOffset;
                 z = doorOffset + (doorWidth / 2d) - roomLength / 2d;
-                yawDeg = 90d;
                 break;
             default:
                 x = 0d;
                 z = 0d;
-                yawDeg = 0d;
                 break;
         }
 
+        var clampedX = Math.Clamp(x, -roomWidth / 2d + marginFromWall, roomWidth / 2d - marginFromWall);
+        var clampedZ = Math.Clamp(z, -roomLength / 2d + marginFromWall, roomLength / 2d - marginFromWall);
+
         var centerX = 0d;
         var centerZ = 0d;
-        var lookAtX = centerX - x;
-        var lookAtZ = centerZ - z;
-        var yawToCenter = Math.Atan2(lookAtZ, lookAtX) * 180d / Math.PI;
-        if (double.IsNaN(yawToCenter) || double.IsInfinity(yawToCenter))
-        {
-            yawToCenter = yawDeg;
-        }
+        var dx = centerX - clampedX;
+        var dz = centerZ - clampedZ;
+        var yawDeg = Math.Atan2(-dx, -dz) * 180d / Math.PI;
 
         return new RoomVrSpawn(
-            X: x,
-            Y: 1.6,
-            Z: z,
-            YawDeg: yawToCenter);
+            X: clampedX,
+            Y: eyeHeight,
+            Z: clampedZ,
+            YawDeg: yawDeg);
     }
 
     private static IReadOnlyList<RoomVrPanel> BuildPanels(
