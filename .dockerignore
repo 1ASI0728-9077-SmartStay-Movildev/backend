@@ -1,0 +1,8 @@
+.git
+.idea
+.env
+.env.*
+.envs
+**/bin
+**/obj
+artifacts
