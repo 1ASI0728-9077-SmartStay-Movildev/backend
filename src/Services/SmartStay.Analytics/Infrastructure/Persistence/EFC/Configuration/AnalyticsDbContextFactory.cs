@@ -9,11 +9,12 @@ public class AnalyticsDbContextFactory : IDesignTimeDbContextFactory<AnalyticsDb
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__AnalyticsConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "server=localhost;port=3306;user=root;password=rootpassword;database=smartstay_analytics;";
+            ?? throw new InvalidOperationException("Configure ConnectionStrings__AnalyticsConnection.");
 
         var optionsBuilder = new DbContextOptionsBuilder<AnalyticsDbContext>();
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        var serverVersion = ServerVersion.AutoDetect(connectionString);
+        optionsBuilder.UseMySql(connectionString, serverVersion,
+            mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_analytics"));
 
         return new AnalyticsDbContext(optionsBuilder.Options);
     }

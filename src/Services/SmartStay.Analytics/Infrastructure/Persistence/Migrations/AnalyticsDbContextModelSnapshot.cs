@@ -135,9 +135,9 @@ namespace SmartStay.Analytics.Infrastructure.Persistence.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("ConsumerName", "EventId")
-                        .HasName("pk_inbox_messages");
+                        .HasName("pk_analytics_inbox_messages");
 
-                    b.ToTable("inbox_messages", (string)null);
+                    b.ToTable("analytics_inbox_messages", (string)null);
                 });
 
             modelBuilder.Entity("SmartStay.Analytics.Domain.Model.Entities.RevenueFact", b =>
