@@ -40,7 +40,8 @@ public static class ModelBuilderExtensions
             new HotelCategory { Id = 3, Name = "Lodge" },
             new HotelCategory { Id = 4, Name = "Hostal" },
             new HotelCategory { Id = 5, Name = "Cabaña" },
-            new HotelCategory { Id = 6, Name = "Resort" }
+            new HotelCategory { Id = 6, Name = "Resort" },
+            new HotelCategory { Id = 7, Name = "Departamento" }
         );
 
         // Amenity Configuration
@@ -95,6 +96,7 @@ public static class ModelBuilderExtensions
         builder.Entity<Room>().Property(r => r.Currency).IsRequired().HasMaxLength(3).HasDefaultValue("USD");
         builder.Entity<Room>().Property(r => r.IsBookable).IsRequired().HasDefaultValue(true);
         builder.Entity<Room>().Property(r => r.TourPath).HasMaxLength(500);
+        builder.Entity<Room>().Property(r => r.Layout).HasColumnType("json").HasMaxLength(20000);
         
         // Monetary value configuration (Precision, Scale)
         builder.Entity<Room>().Property(r => r.Price)

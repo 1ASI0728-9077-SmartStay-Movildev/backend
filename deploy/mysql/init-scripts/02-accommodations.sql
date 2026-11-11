@@ -115,6 +115,7 @@ BEGIN
         `price` decimal(18,2) NOT NULL,
         `description` varchar(1000) CHARACTER SET utf8mb4 NOT NULL,
         `amenities` json NOT NULL,
+        `layout` json NULL,
         CONSTRAINT `pk_rooms` PRIMARY KEY (`id`),
         CONSTRAINT `fk_rooms_hotels_hotel_id` FOREIGN KEY (`hotel_id`) REFERENCES `hotels` (`id`) ON DELETE CASCADE,
         CONSTRAINT `fk_rooms_room_types_room_type_id` FOREIGN KEY (`room_type_id`) REFERENCES `room_types` (`id`) ON DELETE RESTRICT
@@ -161,6 +162,10 @@ BEGIN
     (4, 'Hostal'),
     (5, 'Cabaña'),
     (6, 'Resort');
+
+    INSERT INTO `hotel_categories` (`id`, `name`)
+    SELECT 7, 'Departamento'
+    WHERE NOT EXISTS (SELECT 1 FROM `hotel_categories` WHERE `id` = 7);
 
     END IF;
 END //

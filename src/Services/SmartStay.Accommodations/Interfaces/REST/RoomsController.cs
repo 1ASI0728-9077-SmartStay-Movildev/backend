@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using BackendAwSmartstay.API.Accommodations.Application.Internal.Services;
 using BackendAwSmartstay.API.Accommodations.Domain.Model.Commands;
 using BackendAwSmartstay.API.Accommodations.Domain.Model.Queries;
 using BackendAwSmartstay.API.Accommodations.Domain.Services;
@@ -33,24 +34,106 @@ public class RoomsController(
         [FromQuery] string? district = null,
         [FromQuery] int? guests = null,
         [FromQuery] decimal? minPrice = null,
-        [FromQuery] decimal? maxPrice = null)
+        [FromQuery] decimal? maxPrice = null,
+        [FromQuery] double? minArea = null,
+        [FromQuery] string? bedType = null)
     {
-        var rooms = await roomQueryService.SearchRoomsAsync(district, guests, minPrice, maxPrice);
-        var response = rooms.Select(r => new RoomSearchResult(
-            RoomId: r.Id,
-            HotelId: r.HotelId,
-            HotelName: r.Hotel?.Name ?? "SmartStay Hotel",
-            District: r.Hotel?.District ?? r.Hotel?.City ?? "Lima",
-            City: r.Hotel?.City ?? "Lima",
-            RoomTypeName: r.RoomType?.Name ?? "Standard Room",
-            NightlyPrice: r.Price,
-            Currency: r.Currency,
-            Capacity: r.Capacity,
-            IsBookable: r.IsBookable,
-            TourPath: r.TourPath,
-            Amenities: r.Amenities ?? []
-        ));
+        var rooms = await roomQueryService.SearchRoomsAsync(district, guests, minPrice, maxPrice, minArea, bedType);
+        var response = rooms.Select(r =>
+        {
+            var layout = RoomLayoutValidator.Deserialize(r.Layout);
+            var preview = layout is null ? null : RoomLayoutValidator.Validate(layout);
+            return new RoomSearchResult(
+                RoomId: r.Id,
+                HotelId: r.HotelId,
+                HotelName: r.Hotel?.Name ?? "SmartStay Hotel",
+                District: r.Hotel?.District ?? r.Hotel?.City ?? "Lima",
+                City: r.Hotel?.City ?? "Lima",
+                RoomTypeName: r.RoomType?.Name ?? "Standard Room",
+                NightlyPrice: r.Price,
+                Currency: r.Currency,
+                Capacity: r.Capacity,
+                IsBookable: r.IsBookable,
+                TourPath: r.TourPath,
+                Amenities: r.Amenities ?? [],
+                AreaM2: preview?.AreaM2,
+                BedSummary: preview?.BedSummary,
+                HasVr: !string.IsNullOrWhiteSpace(r.Layout)
+            );
+        });
 
+        return Ok(response);
+    }
+
+    [HttpGet("layout/catalog")]
+    [AllowAnonymous]
+    public IActionResult GetLayoutCatalog()
+    {
+        return Ok(RoomLayoutValidator.Catalog);
+    }
+
+    [HttpPost("layout/preview")]
+    [AllowAnonymous]
+    public IActionResult PreviewLayout([FromBody] RoomLayoutDto layout)
+    {
+        return Ok(RoomLayoutValidator.Validate(layout));
+    }
+
+    [HttpGet("{roomId:int}/layout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRoomLayout(int roomId)
+    {
+        var room = await roomQueryService.Handle(new GetRoomByIdQuery(roomId));
+        if (room is null) return NotFound();
+
+        var layout = RoomLayoutValidator.Deserialize(room.Layout);
+        if (layout is null) return Ok(new { roomId, areaM2 = 0, guestCapacity = 0, bedSummary = "Sin layout", message = "No hay layout definido" });
+
+        var preview = RoomLayoutValidator.Validate(layout);
+        return Ok(new {
+            roomId,
+            areaM2 = preview.AreaM2,
+            guestCapacity = preview.GuestCapacity,
+            bedSummary = preview.BedSummary,
+            errors = preview.Errors,
+            layout
+        });
+    }
+
+    [HttpPut("{roomId:int}/layout")]
+    [AccommodationsAuthorize(UserRoles.Admin, UserRoles.ChainAdmin)]
+    public async Task<IActionResult> SaveRoomLayout(int roomId, [FromBody] RoomLayoutDto layout)
+    {
+        var room = await roomQueryService.Handle(new GetRoomByIdQuery(roomId));
+        if (room is null) return NotFound();
+
+        var preview = RoomLayoutValidator.Validate(layout);
+        if (!preview.IsValid)
+        {
+            return BadRequest(new { errors = preview.Errors });
+        }
+
+        var saved = await roomCommandService.Handle(new UpdateRoomLayoutCommand(roomId, RoomLayoutValidator.Serialize(layout)));
+        if (saved is null) return NotFound();
+
+        return Ok(new { roomId, areaM2 = preview.AreaM2, guestCapacity = preview.GuestCapacity, bedSummary = preview.BedSummary, layout });
+    }
+
+    [HttpGet("{roomId:int}/vr")]
+    [AllowAnonymous]
+    [ResponseCache(Duration = 60)]
+    [SwaggerOperation(Summary = "Get the VR scene manifest for a room layout", OperationId = "GetRoomVrScene")]
+    [SwaggerResponse(StatusCodes.Status200OK, "VR scene manifest generated from the saved room layout.", typeof(RoomVrSceneResponse))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Room or saved layout not found.")]
+    public async Task<IActionResult> GetRoomVr(int roomId)
+    {
+        var room = await roomQueryService.Handle(new GetRoomByIdQuery(roomId));
+        if (room is null || string.IsNullOrWhiteSpace(room.Layout))
+        {
+            return NotFound(new { message = $"No hay un layout guardado para la habitación {roomId}." });
+        }
+
+        var response = RoomVrSceneAssembler.ToVrScene(room);
         return Ok(response);
     }
 
