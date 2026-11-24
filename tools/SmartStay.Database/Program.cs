@@ -6,6 +6,7 @@ using SmartStay.Bookings.Infrastructure.Persistence.EFC.Configuration;
 using SmartStay.Payments.Infrastructure.Persistence.EFC.Configuration;
 using SmartStay.Profiles.Infrastructure.Persistence.EFC.Configuration;
 using SmartStay.Analytics.Infrastructure.Persistence.EFC.Configuration;
+using SmartStay.Concierge.Infrastructure.Persistence;
 
 var mode = args.FirstOrDefault() ?? "check";
 if (mode is not ("check" or "migrate" or "seed"))
@@ -20,12 +21,23 @@ try
     await using var connection = new MySqlConnection(connectionString);
     await connection.OpenAsync();
     Console.WriteLine($"Connected to MySQL {connection.ServerVersion}.");
-    await using (var tls = new MySqlCommand("SHOW SESSION STATUS LIKE 'Ssl_cipher'", connection))
-    await using (var reader = await tls.ExecuteReaderAsync())
+    var csb = new MySqlConnectionStringBuilder(connectionString);
+    var requireTlsEnv = Environment.GetEnvironmentVariable("MYSQL_REQUIRE_TLS");
+    var requireTls = !string.Equals(requireTlsEnv, "false", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(requireTlsEnv, "0", StringComparison.OrdinalIgnoreCase)
+        && csb.SslMode != MySqlSslMode.None;
+
+    if (requireTls)
     {
+        await using var tls = new MySqlCommand("SHOW SESSION STATUS LIKE 'Ssl_cipher'", connection);
+        await using var reader = await tls.ExecuteReaderAsync();
         if (!await reader.ReadAsync() || string.IsNullOrEmpty(reader.GetString(1)))
             throw new InvalidOperationException("The remote database requires a TLS connection.");
         Console.WriteLine("TLS enabled.");
+    }
+    else
+    {
+        Console.WriteLine("TLS check bypassed for local/unencrypted development connection.");
     }
 
     if (mode != "check")
@@ -51,7 +63,8 @@ try
         ("bookings", new BookingsDbContextFactory().CreateDbContext([])),
         ("payments", new PaymentsDbContextFactory().CreateDbContext([])),
         ("profiles", new ProfilesDbContextFactory().CreateDbContext([])),
-        ("analytics", new AnalyticsDbContextFactory().CreateDbContext([]))
+        ("analytics", new AnalyticsDbContextFactory().CreateDbContext([])),
+        ("concierge", new ConciergeDbContextFactory().CreateDbContext([]))
     };
     try
     {
@@ -102,7 +115,12 @@ try
                 INSERT INTO users
                   (Id, Username, PasswordHash, Role, Status, hotel_id, chain_id, token_version, created_at, updated_at)
                 VALUES (@id, @username, @hash, @role, 'Active', @hotel, @chain, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-                ON DUPLICATE KEY UPDATE id = id;
+                ON DUPLICATE KEY UPDATE
+                  PasswordHash = VALUES(PasswordHash),
+                  Role = VALUES(Role),
+                  Status = 'Active',
+                  hotel_id = VALUES(hotel_id),
+                  chain_id = VALUES(chain_id);
                 """;
             var hash = BCrypt.Net.BCrypt.HashPassword("Password123!");
             var users = new (int Id, string Username, string Role, int? Hotel, int? Chain)[]

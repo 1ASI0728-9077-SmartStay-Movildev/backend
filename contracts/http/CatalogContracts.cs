@@ -8,7 +8,8 @@ public sealed record RoomSnapshot(
     int HotelId,
     bool IsBookable,
     decimal NightlyPrice,
-    string Currency = "USD"
+    string Currency = "USD",
+    int Capacity = 2
 );
 
 /// <summary>

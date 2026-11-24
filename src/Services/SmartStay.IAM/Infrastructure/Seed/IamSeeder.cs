@@ -13,31 +13,57 @@ public class IamSeeder
         try
         {
             var config = services.GetRequiredService<IConfiguration>();
-            var username = config["InitialChainAdmin:Username"] ?? Environment.GetEnvironmentVariable("INITIAL_CHAIN_ADMIN_USERNAME");
-            var password = config["InitialChainAdmin:Password"] ?? Environment.GetEnvironmentVariable("INITIAL_CHAIN_ADMIN_PASSWORD");
-
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            {
-                logger.LogWarning("IamSeeder: Initial chain admin credentials not provided; skipping seed.");
-                return;
-            }
-
             var userRepository = services.GetRequiredService<IUserRepository>();
             var hashingService = services.GetRequiredService<IHashingService>();
             var unitOfWork = services.GetRequiredService<IIamUnitOfWork>();
 
-            if (await userRepository.ExistsByUsernameAsync(username))
+            var defaultPassword = "Password123!";
+            var defaultHash = hashingService.HashPassword(defaultPassword);
+
+            // Baseline demo users in order so auto-increment produces IDs 1..5
+            var demoUsers = new List<(string Username, string Role, int? HotelId, int? ChainId)>
             {
-                logger.LogWarning("IamSeeder: User '{Username}' already exists; skipping seed.", username);
-                return;
+                ("admin", UserRoles.Admin, 1, 1),
+                ("guest1", UserRoles.Guest, null, null),
+                ("guest2", UserRoles.Guest, null, null),
+                ("admin_cusco", UserRoles.Admin, 2, 1),
+                ("chain_admin", UserRoles.ChainAdmin, null, 1)
+            };
+
+            var customAdminUser = config["InitialChainAdmin:Username"] ?? Environment.GetEnvironmentVariable("INITIAL_CHAIN_ADMIN_USERNAME");
+            var customAdminPass = config["InitialChainAdmin:Password"] ?? Environment.GetEnvironmentVariable("INITIAL_CHAIN_ADMIN_PASSWORD");
+
+            bool anyAdded = false;
+            foreach (var seed in demoUsers)
+            {
+                if (await userRepository.ExistsByUsernameAsync(seed.Username))
+                    continue;
+
+                var pwdHash = (seed.Username == customAdminUser && !string.IsNullOrWhiteSpace(customAdminPass))
+                    ? hashingService.HashPassword(customAdminPass)
+                    : defaultHash;
+
+                var user = new User(seed.Username, pwdHash, seed.Role, hotelId: seed.HotelId, chainId: seed.ChainId);
+                await userRepository.AddAsync(user);
+                anyAdded = true;
             }
 
-            var hashed = hashingService.HashPassword(password);
-            var user = new User(username, hashed, UserRoles.ChainAdmin, hotelId: 1);
+            // Also support custom chain admin username if provided and distinct
+            if (!string.IsNullOrWhiteSpace(customAdminUser) && !string.IsNullOrWhiteSpace(customAdminPass) && customAdminUser != "chain_admin")
+            {
+                if (!await userRepository.ExistsByUsernameAsync(customAdminUser))
+                {
+                    var user = new User(customAdminUser, hashingService.HashPassword(customAdminPass), UserRoles.ChainAdmin, hotelId: null, chainId: 1);
+                    await userRepository.AddAsync(user);
+                    anyAdded = true;
+                }
+            }
 
-            await userRepository.AddAsync(user);
-            await unitOfWork.CompleteAsync();
-            logger.LogInformation("IamSeeder: Created initial chain admin user '{Username}' with HotelId=1.", username);
+            if (anyAdded)
+            {
+                await unitOfWork.CompleteAsync();
+                logger.LogInformation("IamSeeder: Seeded demo users successfully.");
+            }
         }
         catch (Exception e)
         {

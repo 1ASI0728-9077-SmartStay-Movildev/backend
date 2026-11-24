@@ -1,10 +1,41 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: smartstay-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-smartstay_legacy}
+      MYSQL_USER: ${MYSQL_USER:-smartstay_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smartstay_password}
+    ports:
+    - ${MYSQL_PORT:-3306}:3306
+    volumes:
+    - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+      - CMD
+      - mysqladmin
+      - ping
+      - -h
+      - 127.0.0.1
+      - -u
+      - root
+      - -p${MYSQL_ROOT_PASSWORD:-rootpassword}
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
   migrate:
     build:
       context: .
       dockerfile: tools/SmartStay.Database/Dockerfile
     environment:
-      ConnectionStrings__DefaultConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__DefaultConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
+      MYSQL_REQUIRE_TLS: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: "no"
   activemq:
     image: apache/activemq-classic:5.18.3
@@ -53,12 +84,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__IamConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__IamConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       TokenSettings__Secret: ${JWT_SECRET:-EstaEsUnaClaveSecretaMuyLargaYSeguraParaSmartStay123!}
       TokenSettings__Audience: ${JWT_AUDIENCE:-http://localhost:5173}
       TokenSettings__Issuer: ${JWT_ISSUER:-http://localhost:5192}
       TokenSettings__ExpirationInHours: ${JWT_EXPIRATION_HOURS:-24}
     depends_on:
+      mysql:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     healthcheck:
@@ -82,9 +115,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AccommodationsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__AccommodationsConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       Services__IamUrl: http://iam:8080
     depends_on:
+      mysql:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       iam:
@@ -110,11 +145,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__BookingsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__BookingsConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       Services__AccommodationsUrl: http://accommodations:8080
       Services__IamUrl: http://iam:8080
       ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
+      mysql:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       activemq:
@@ -144,11 +181,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__PaymentsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__PaymentsConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       Services__BookingsUrl: http://bookings:8080
       Services__IamUrl: http://iam:8080
       ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
+      mysql:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       activemq:
@@ -178,9 +217,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__ProfilesConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__ProfilesConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       Services__IamUrl: http://iam:8080
     depends_on:
+      mysql:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       iam:
@@ -206,10 +247,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AnalyticsConnection: ${MYSQL_CONNECTION_STRING:?Configure MYSQL_CONNECTION_STRING in .env}
+      ConnectionStrings__AnalyticsConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       Services__IamUrl: http://iam:8080
       ActiveMq__BrokerUri: tcp://activemq:61616
     depends_on:
+      mysql:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       activemq:
@@ -237,17 +280,25 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ConciergeConnection: ${MYSQL_CONNECTION_STRING:-Server=mysql;Port=3306;Database=smartstay_legacy;User ID=smartstay_user;Password=smartstay_password;SslMode=None;AllowPublicKeyRetrieval=true;}
       Services__AccommodationsUrl: http://accommodations:8080
       Services__BookingsUrl: http://bookings:8080
+      Services__PaymentsUrl: http://payments:8080
       Services__IamUrl: http://iam:8080
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY:-}
       DeepSeek__Model: ${DEEPSEEK_MODEL:-deepseek-chat}
     depends_on:
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       iam:
         condition: service_started
       accommodations:
         condition: service_started
       bookings:
+        condition: service_started
+      payments:
         condition: service_started
     healthcheck:
       test:
@@ -263,3 +314,4 @@ services:
     - '8080'
 volumes:
   activemq_data: null
+  mysql_data: null

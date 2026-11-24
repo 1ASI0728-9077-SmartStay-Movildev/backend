@@ -13,5 +13,6 @@
     <ProjectReference Include="../../src/Services/SmartStay.Payments/SmartStay.Payments.csproj" />
     <ProjectReference Include="../../src/Services/SmartStay.Profiles/SmartStay.Profiles.csproj" />
     <ProjectReference Include="../../src/Services/SmartStay.Analytics/SmartStay.Analytics.csproj" />
+    <ProjectReference Include="../../src/Services/SmartStay.Concierge/SmartStay.Concierge.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,12 @@
+services:
+  payments:
+    ports:
+    - "5005:8080"
+    environment:
+      Features__EnableDemoPayment: "true"
+  bookings:
+    ports:
+    - "5004:8080"
+  concierge:
+    ports:
+    - "5008:8080"

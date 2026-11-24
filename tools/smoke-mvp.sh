@@ -3,6 +3,11 @@ set -euo pipefail
 
 GATEWAY_URL="${GATEWAY_URL:-http://localhost:8080}"
 
+CHECK_IN=$(date -u -d "+1 day" +%Y-%m-%d)
+CHECK_OUT=$(date -u -d "+3 day" +%Y-%m-%d)
+BOOKING_CHECK_IN=$(date -u -d "+7 day" +%Y-%m-%dT00:00:00Z)
+BOOKING_CHECK_OUT=$(date -u -d "+9 day" +%Y-%m-%dT00:00:00Z)
+
 echo "=========================================================="
 echo " SmartStay MVP: Comprehensive End-to-End Smoke Test       "
 echo " Gateway: $GATEWAY_URL                                    "
@@ -78,8 +83,8 @@ CONCIERGE_RESP=$(curl -s -X POST "$GATEWAY_URL/api/v1/concierge/messages" \
     -H "Content-Type: application/json" \
     -d '{
         "message": "Quiero una habitación cómoda para 2 personas en Cercado de Lima",
-        "checkIn": "2026-11-20",
-        "checkOut": "2026-11-22",
+        "checkIn": "'"$CHECK_IN"'",
+        "checkOut": "'"$CHECK_OUT"'",
         "guests": 2,
         "district": "Cercado de Lima",
         "budgetTotal": 400.00,
@@ -99,8 +104,8 @@ BUDGET_EXCEEDED_RESP=$(curl -s -X POST "$GATEWAY_URL/api/v1/concierge/messages" 
     -H "Content-Type: application/json" \
     -d '{
         "message": "Habitación barata",
-        "checkIn": "2026-11-20",
-        "checkOut": "2026-11-22",
+        "checkIn": "'"$CHECK_IN"'",
+        "checkOut": "'"$CHECK_OUT"'",
         "guests": 2,
         "district": "Cercado de Lima",
         "budgetTotal": 50.00,
@@ -123,8 +128,8 @@ CREATE_RESP=$(curl -s -w "\n%{http_code}" -X POST "$GATEWAY_URL/api/v1/bookings"
         "roomId": 102,
         "guestName": "Juan Perez",
         "guestEmail": "juan.perez@example.com",
-        "checkInDate": "2026-12-01T00:00:00Z",
-        "checkOutDate": "2026-12-03T00:00:00Z"
+        "checkInDate": "'"$BOOKING_CHECK_IN"'",
+        "checkOutDate": "'"$BOOKING_CHECK_OUT"'"
     }')
 
 CREATE_CODE=$(echo "$CREATE_RESP" | tail -n 1)
