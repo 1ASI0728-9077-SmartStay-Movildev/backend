@@ -12,7 +12,16 @@ public class BookingsDbContextFactory : IDesignTimeDbContextFactory<BookingsDbCo
             ?? throw new InvalidOperationException("Configure ConnectionStrings__BookingsConnection.");
 
         var optionsBuilder = new DbContextOptionsBuilder<BookingsDbContext>();
-        var serverVersion = ServerVersion.AutoDetect(connectionString);
+        ServerVersion serverVersion;
+        try
+        {
+            serverVersion = ServerVersion.AutoDetect(connectionString);
+        }
+        catch
+        {
+            serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
+        }
+
         optionsBuilder.UseMySql(connectionString, serverVersion,
             mysql => mysql.MigrationsHistoryTable("__EFMigrationsHistory_bookings"));
 

@@ -15,9 +15,8 @@ public class BookingsPaymentConsumerWorker(
     IConfiguration configuration,
     ILogger<BookingsPaymentConsumerWorker> logger) : BackgroundService
 {
-    private const string QueueName = "bookings.payment-completed.queue";
-    private const string PaymentsTopicName = "payments.events";
-    private const string BookingsTopicName = "bookings.events";
+    private const string PaymentsQueueName = "Consumer.Bookings.VirtualTopic.SmartStay.Payments.V1";
+    private const string BookingsTopicName = "VirtualTopic.SmartStay.Bookings.V1";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -35,13 +34,10 @@ public class BookingsPaymentConsumerWorker(
                 connection.Start();
 
                 using var session = connection.CreateSession(AcknowledgementMode.ClientAcknowledge);
-                var topic = session.GetTopic(PaymentsTopicName);
-                var queue = session.GetQueue(QueueName);
+                var queue = session.GetQueue(PaymentsQueueName);
+                using var consumer = session.CreateConsumer(queue);
 
-                // Escuchar de la cola virtual o destino
-                using var consumer = session.CreateConsumer(topic);
-
-                logger.LogInformation("BookingsPaymentConsumerWorker connected to ActiveMQ broker at {Uri}.", brokerUri);
+                logger.LogInformation("BookingsPaymentConsumerWorker connected to ActiveMQ broker at {Uri} listening on {Queue}.", brokerUri, PaymentsQueueName);
 
                 while (!stoppingToken.IsCancellationRequested)
                 {
@@ -62,13 +58,13 @@ public class BookingsPaymentConsumerWorker(
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                logger.LogWarning(ex, "ActiveMQ connection failed. Retrying in 5 seconds...");
+                logger.LogWarning(ex, "ActiveMQ connection failed in BookingsPaymentConsumerWorker. Retrying in 5 seconds...");
                 await Task.Delay(5000, stoppingToken);
             }
         }
     }
 
-    private async Task ProcessPaymentEventAsync(string messageJson, CancellationToken ct)
+    public async Task ProcessPaymentEventAsync(string messageJson, CancellationToken ct)
     {
         using var doc = JsonDocument.Parse(messageJson);
         var root = doc.RootElement;
@@ -103,13 +99,39 @@ public class BookingsPaymentConsumerWorker(
             try
             {
                 var inboxEntry = new InboxMessage("Bookings", eventId, eventType, DateTime.UtcNow);
+                inboxEntry.MarkProcessed();
                 await dbContext.InboxMessages.AddAsync(inboxEntry, ct);
 
                 var booking = await bookingRepository.FindByIdAsync(bookingId);
                 if (booking is null)
                 {
-                    logger.LogWarning("Booking #{BookingId} not found when applying payment #{PaymentId}.", bookingId, paymentId);
-                    inboxEntry.MarkFailed($"Booking #{bookingId} not found.");
+                    logger.LogWarning("Booking #{BookingId} not found when applying payment #{PaymentId}. Enqueueing refund compensation.", bookingId, paymentId);
+                    await EnqueueRefundOutboxAsync(bookingRepository, paymentId, bookingId, $"Booking #{bookingId} not found.", eventId);
+                    await unitOfWork.CompleteAsync();
+                    await tx.CommitAsync(ct);
+                    return;
+                }
+
+                if (booking.Status == BookingStatus.Confirmed)
+                {
+                    if (booking.PaymentId == paymentId)
+                    {
+                        logger.LogInformation("Booking #{BookingId} already confirmed with payment #{PaymentId}. Idempotent pass.", bookingId, paymentId);
+                    }
+                    else
+                    {
+                        logger.LogWarning("Booking #{BookingId} already confirmed with payment #{ExistingPaymentId}. Refunding payment #{PaymentId}.", bookingId, booking.PaymentId, paymentId);
+                        await EnqueueRefundOutboxAsync(bookingRepository, paymentId, bookingId, $"Booking #{bookingId} already confirmed with another payment.", eventId);
+                    }
+                    await unitOfWork.CompleteAsync();
+                    await tx.CommitAsync(ct);
+                    return;
+                }
+
+                if (booking.Status == BookingStatus.Cancelled || booking.Status == BookingStatus.Expired)
+                {
+                    logger.LogWarning("Booking #{BookingId} in status {Status} received payment #{PaymentId}. Requesting refund compensation.", bookingId, booking.Status, paymentId);
+                    await EnqueueRefundOutboxAsync(bookingRepository, paymentId, bookingId, $"Booking #{bookingId} was in status {booking.Status} when payment arrived.", eventId);
                     await unitOfWork.CompleteAsync();
                     await tx.CommitAsync(ct);
                     return;
@@ -118,50 +140,47 @@ public class BookingsPaymentConsumerWorker(
                 if (booking.Status == BookingStatus.PendingPayment)
                 {
                     var isExpiredNow = booking.ExpiresAtUtc.HasValue && booking.ExpiresAtUtc.Value <= DateTime.UtcNow;
-                    var isAmountMismatch = amount < booking.TotalAmount;
+                    var expectedNights = (booking.CheckOutDate.Date - booking.CheckInDate.Date).Days;
+                    var hasValidLocks = booking.NightLocks != null && booking.NightLocks.Count == expectedNights;
+                    var isAmountMismatch = amount != booking.TotalAmount;
                     var isCurrencyMismatch = !string.Equals(currency, booking.Currency, StringComparison.OrdinalIgnoreCase);
 
-                    if (isExpiredNow || isAmountMismatch || isCurrencyMismatch)
+                    if (isExpiredNow || !hasValidLocks || isAmountMismatch || isCurrencyMismatch)
                     {
-                        var reason = isExpiredNow
-                            ? $"Booking #{bookingId} hold TTL expired at {booking.ExpiresAtUtc:O}."
-                            : $"Payment amount/currency mismatch (Received: {amount} {currency}, Required: {booking.TotalAmount} {booking.Currency}).";
+                        string reason;
+                        if (isExpiredNow)
+                        {
+                            reason = $"Booking #{bookingId} hold TTL expired at {booking.ExpiresAtUtc:O}.";
+                        }
+                        else if (!hasValidLocks)
+                        {
+                            reason = $"Booking #{bookingId} room night locks invalid or released.";
+                        }
+                        else
+                        {
+                            reason = $"Payment amount/currency mismatch (Received: {amount} {currency}, Expected: {booking.TotalAmount} {booking.Currency}).";
+                        }
 
                         logger.LogWarning("Rejecting payment #{PaymentId} for Booking #{BookingId}: {Reason}", paymentId, bookingId, reason);
 
-                        // Si ActiveMQ falla, lanza excepción, revierte tx y no ack para reintento seguro
-                        PublishRefundRequestedOrThrow(paymentId, bookingId, reason);
+                        if (isExpiredNow || !hasValidLocks)
+                        {
+                            booking.Expire();
+                            await bookingRepository.RemoveLocksByBookingIdAsync(booking.Id);
+                            bookingRepository.Update(booking);
+                        }
 
-                        inboxEntry.MarkProcessed();
+                        await EnqueueRefundOutboxAsync(bookingRepository, paymentId, bookingId, reason, eventId);
                         await unitOfWork.CompleteAsync();
                         await tx.CommitAsync(ct);
                         return;
                     }
 
-                    booking.Confirm();
-                    inboxEntry.MarkProcessed();
+                    booking.Confirm(paymentId);
+                    bookingRepository.Update(booking);
                     await unitOfWork.CompleteAsync();
                     await tx.CommitAsync(ct);
                     logger.LogInformation("Booking #{BookingId} successfully confirmed via ActiveMQ Payment #{PaymentId}.", bookingId, paymentId);
-                }
-                else if (booking.Status == BookingStatus.Cancelled || booking.Status == BookingStatus.Expired)
-                {
-                    // No resucitar reservas vencidas o canceladas: emitir compensación de reembolso obligatoria
-                    logger.LogWarning("Booking #{BookingId} in status {Status} received payment #{PaymentId}. Requesting refund compensation.", bookingId, booking.Status, paymentId);
-
-                    PublishRefundRequestedOrThrow(paymentId, bookingId, $"Booking #{bookingId} was in status {booking.Status} when payment arrived.");
-
-                    inboxEntry.MarkProcessed();
-                    await unitOfWork.CompleteAsync();
-                    await tx.CommitAsync(ct);
-                }
-                else
-                {
-                    // Ya confirmada previamente: idempotente
-                    inboxEntry.MarkProcessed();
-                    await unitOfWork.CompleteAsync();
-                    await tx.CommitAsync(ct);
-                    logger.LogInformation("Booking #{BookingId} was already in status {Status}. Payment #{PaymentId} marked as duplicate.", bookingId, booking.Status, paymentId);
                 }
             }
             catch (Exception ex)
@@ -173,33 +192,28 @@ public class BookingsPaymentConsumerWorker(
         }
     }
 
-    private void PublishRefundRequestedOrThrow(int paymentId, int bookingId, string reason)
+    private static async Task EnqueueRefundOutboxAsync(
+        IBookingRepository bookingRepository,
+        int paymentId,
+        int bookingId,
+        string reason,
+        Guid causationEventId)
     {
-        var brokerUri = configuration["ActiveMq:BrokerUri"] ?? "tcp://localhost:61616";
-        var factory = new ConnectionFactory(brokerUri);
-        using var connection = factory.CreateConnection();
-        connection.Start();
-
-        using var session = connection.CreateSession();
-        var destination = session.GetTopic(BookingsTopicName);
-        using var producer = session.CreateProducer(destination);
-        producer.DeliveryMode = MsgDeliveryMode.Persistent;
-
-        var evt = new IntegrationEvent<PaymentRefundRequestedV1>(
-            EventId: Guid.NewGuid(),
+        var eventId = Guid.NewGuid();
+        var refundEvt = new IntegrationEvent<PaymentRefundRequestedV1>(
+            EventId: eventId,
             EventType: "bookings.payment-refund-requested",
             SchemaVersion: 1,
             OccurredAtUtc: DateTimeOffset.UtcNow,
-            CorrelationId: Guid.NewGuid().ToString(),
-            CausationId: null,
+            CorrelationId: causationEventId.ToString(),
+            CausationId: causationEventId.ToString(),
             AggregateId: bookingId.ToString(),
             AggregateVersion: 1,
             Data: new PaymentRefundRequestedV1(paymentId, bookingId, reason)
         );
 
-        var json = JsonSerializer.Serialize(evt, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-        var msg = producer.CreateTextMessage(json);
-        producer.Send(msg);
-        logger.LogInformation("Successfully published refund request compensation event for Payment #{PaymentId}, Booking #{BookingId}.", paymentId, bookingId);
+        var payload = JsonSerializer.Serialize(refundEvt, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var outboxMessage = new OutboxMessage(eventId, "bookings.payment-refund-requested", 1, bookingId.ToString(), 1, payload);
+        await bookingRepository.AddOutboxMessageAsync(outboxMessage);
     }
 }

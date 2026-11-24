@@ -1,4 +1,5 @@
 using SmartStay.Bookings.Domain.Model.Aggregates;
+using SmartStay.Bookings.Domain.Model.Entities;
 using SmartStay.Bookings.Domain.Model.Queries;
 using SmartStay.Bookings.Domain.Repositories;
 using SmartStay.Bookings.Domain.Services;
@@ -11,6 +12,16 @@ public class BookingQueryService(IBookingRepository bookingRepository) : IBookin
     public async Task<Booking?> Handle(GetBookingByIdQuery query)
     {
         return await bookingRepository.FindByIdAsync(query.BookingId);
+    }
+
+    public async Task<BookingQuote?> Handle(GetQuoteByIdQuery query)
+    {
+        return await bookingRepository.FindQuoteByIdAsync(query.QuoteId);
+    }
+
+    public async Task<Booking?> Handle(GetBookingByPurchaseIntentIdQuery query)
+    {
+        return await bookingRepository.FindByPurchaseIntentIdAsync(query.PurchaseIntentId);
     }
 
     public async Task<IEnumerable<Booking>> Handle(GetAllBookingsQuery query)

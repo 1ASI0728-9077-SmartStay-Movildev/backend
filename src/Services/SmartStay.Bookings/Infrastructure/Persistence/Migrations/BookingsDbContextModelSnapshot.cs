@@ -86,6 +86,15 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("nightly_price");
 
+                    b.Property<int?>("PaymentId")
+                        .HasColumnType("int")
+                        .HasColumnName("payment_id");
+
+                    b.Property<string>("PurchaseIntentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("purchase_intent_id");
+
                     b.Property<int>("RoomId")
                         .HasColumnType("int")
                         .HasColumnName("room_id");
@@ -104,7 +113,89 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
                     b.HasIndex(new[] { "GuestUserId" }, "ix_bookings_guest_user_id")
                         .HasDatabaseName("ix_bookings_guest_user_id");
 
+                    b.HasIndex(new[] { "PurchaseIntentId" }, "ix_bookings_purchase_intent_id")
+                        .HasDatabaseName("ix_bookings_purchase_intent_id");
+
                     b.ToTable("bookings", (string)null);
+                });
+
+            modelBuilder.Entity("SmartStay.Bookings.Domain.Model.Entities.BookingQuote", b =>
+                {
+                    b.Property<string>("QuoteId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("quote_id");
+
+                    b.Property<DateTime>("CheckInDate")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("check_in_date");
+
+                    b.Property<DateTime>("CheckOutDate")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("check_out_date");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)")
+                        .HasDefaultValue("USD")
+                        .HasColumnName("currency");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<int>("GuestUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("guest_user_id");
+
+                    b.Property<int>("Guests")
+                        .HasColumnType("int")
+                        .HasColumnName("guests");
+
+                    b.Property<int>("HotelId")
+                        .HasColumnType("int")
+                        .HasColumnName("hotel_id");
+
+                    b.Property<bool>("IsUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_used");
+
+                    b.Property<decimal>("NightlyPrice")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("nightly_price");
+
+                    b.Property<string>("PurchaseIntentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("purchase_intent_id");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int")
+                        .HasColumnName("room_id");
+
+                    b.Property<decimal>("StayTotal")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("stay_total");
+
+                    b.HasKey("QuoteId")
+                        .HasName("pk_booking_quotes");
+
+                    b.HasIndex(new[] { "GuestUserId" }, "ix_booking_quotes_guest_user_id")
+                        .HasDatabaseName("ix_booking_quotes_guest_user_id");
+
+                    b.HasIndex(new[] { "PurchaseIntentId" }, "ix_booking_quotes_purchase_intent_id")
+                        .HasDatabaseName("ix_booking_quotes_purchase_intent_id");
+
+                    b.ToTable("booking_quotes", (string)null);
                 });
 
             modelBuilder.Entity("SmartStay.Bookings.Domain.Model.Entities.InboxMessage", b =>
@@ -147,6 +238,80 @@ namespace SmartStay.Bookings.Infrastructure.Persistence.Migrations
                         .HasName("pk_bookings_inbox_messages");
 
                     b.ToTable("bookings_inbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("SmartStay.Bookings.Domain.Model.Entities.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AggregateId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("aggregate_id");
+
+                    b.Property<long>("AggregateVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("aggregate_version");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)")
+                        .HasColumnName("event_type");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("LeaseOwner")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("lease_owner");
+
+                    b.Property<DateTime?>("LeaseUntilUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("lease_until_utc");
+
+                    b.Property<DateTime?>("NextAttemptAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("next_attempt_at_utc");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("occurred_at_utc");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("longtext")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("published_at_utc");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int")
+                        .HasColumnName("schema_version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_bookings_outbox_messages");
+
+                    b.HasIndex(new[] { "PublishedAtUtc", "NextAttemptAtUtc" }, "ix_bookings_outbox_polling")
+                        .HasDatabaseName("ix_bookings_outbox_polling");
+
+                    b.HasIndex(new[] { "PublishedAtUtc" }, "ix_bookings_outbox_published_at")
+                        .HasDatabaseName("ix_bookings_outbox_published_at");
+
+                    b.ToTable("bookings_outbox_messages", (string)null);
                 });
 
             modelBuilder.Entity("SmartStay.Bookings.Domain.Model.Entities.RoomNightLock", b =>

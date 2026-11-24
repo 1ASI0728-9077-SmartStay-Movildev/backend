@@ -18,5 +18,7 @@ public record CreateBookingResource(
     string GuestName,
     string GuestEmail,
     DateTime CheckInDate,
-    DateTime CheckOutDate
+    DateTime CheckOutDate,
+    string? QuoteId = null,
+    string? PurchaseIntentId = null
 );

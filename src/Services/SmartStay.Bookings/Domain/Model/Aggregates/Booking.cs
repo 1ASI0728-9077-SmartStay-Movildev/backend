@@ -39,13 +39,15 @@ public class Booking
         decimal totalAmount,
         string currency = "USD",
         int ttlMinutes = 15,
-        int guestUserId = 0) : this()
+        int guestUserId = 0,
+        string? purchaseIntentId = null) : this()
     {
         RoomId = roomId;
         HotelId = hotelId;
         GuestName = guestName;
         GuestEmail = guestEmail;
         GuestUserId = guestUserId;
+        PurchaseIntentId = purchaseIntentId;
         CheckInDate = checkInDate;
         CheckOutDate = checkOutDate;
         NightlyPrice = nightlyPrice;
@@ -68,6 +70,8 @@ public class Booking
     public decimal TotalAmount { get; private set; }
     public string Currency { get; private set; }
     public BookingStatus Status { get; private set; }
+    public int? PaymentId { get; private set; }
+    public string? PurchaseIntentId { get; private set; }
     public DateTime? ExpiresAtUtc { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public Guid ConcurrencyToken { get; private set; }
@@ -87,10 +91,15 @@ public class Booking
         _nightLocks.Clear();
     }
 
+    public void SetPurchaseIntentId(string purchaseIntentId)
+    {
+        PurchaseIntentId = purchaseIntentId;
+    }
+
     /// <summary>
     /// Confirma la reserva verificando estrictamente la vigencia del TTL antes de fijar el estado.
     /// </summary>
-    public void Confirm()
+    public void Confirm(int? paymentId = null)
     {
         if (Status != BookingStatus.PendingPayment)
             throw new InvalidOperationException($"Cannot confirm booking from status '{Status}'.");
@@ -104,6 +113,7 @@ public class Booking
         }
 
         Status = BookingStatus.Confirmed;
+        PaymentId = paymentId;
         ExpiresAtUtc = null;
         ConcurrencyToken = Guid.NewGuid();
     }

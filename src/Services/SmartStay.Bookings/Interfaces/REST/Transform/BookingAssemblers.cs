@@ -30,7 +30,9 @@ public static class BookingAssemblers
             resource.GuestEmail,
             resource.CheckInDate,
             resource.CheckOutDate,
-            guestUserId
+            guestUserId,
+            resource.QuoteId,
+            resource.PurchaseIntentId
         );
     }
 }

@@ -82,4 +82,36 @@ public class BookingRepository(BookingsDbContext context) : IBookingRepository
             .Where(b => b.Status == BookingStatus.PendingPayment && b.ExpiresAtUtc != null && b.ExpiresAtUtc <= now)
             .ToListAsync();
     }
+
+    public async Task AddQuoteAsync(BookingQuote quote)
+    {
+        await context.BookingQuotes.AddAsync(quote);
+    }
+
+    public async Task<BookingQuote?> FindQuoteByIdAsync(string quoteId)
+    {
+        return await context.BookingQuotes.FirstOrDefaultAsync(q => q.QuoteId == quoteId);
+    }
+
+    public async Task<Booking?> FindByPurchaseIntentIdAsync(string purchaseIntentId)
+    {
+        return await context.Bookings
+            .Include(b => b.NightLocks)
+            .FirstOrDefaultAsync(b => b.PurchaseIntentId == purchaseIntentId);
+    }
+
+    public async Task AddOutboxMessageAsync(OutboxMessage outboxMessage)
+    {
+        await context.OutboxMessages.AddAsync(outboxMessage);
+    }
+
+    public async Task<List<OutboxMessage>> GetPendingOutboxMessagesAsync(int batchSize, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await context.OutboxMessages
+            .Where(m => m.PublishedAtUtc == null && (m.NextAttemptAtUtc == null || m.NextAttemptAtUtc <= now))
+            .OrderBy(m => m.OccurredAtUtc)
+            .Take(batchSize)
+            .ToListAsync(ct);
+    }
 }
