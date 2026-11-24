@@ -80,18 +80,47 @@ public class PaymentsCompensationConsumerWorker(
         {
             var dataElement = root.GetProperty("data");
             var paymentId = dataElement.GetProperty("paymentId").GetInt32();
+            var bookingId = dataElement.TryGetProperty("bookingId", out var bProp) ? bProp.GetInt32() : 0;
             var reason = dataElement.GetProperty("reason").GetString() ?? "Refund requested by Bookings.";
 
-            var inboxEntry = new InboxMessage("Payments", eventId, eventType, DateTime.UtcNow);
-            await dbContext.InboxMessages.AddAsync(inboxEntry, ct);
-            await unitOfWork.CompleteAsync();
+            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
 
-            await paymentCommandService.Handle(new RefundPaymentCommand(paymentId, reason));
+            await using var tx = await unitOfWork.BeginTransactionAsync(ct);
+            try
+            {
+                var inboxEntry = new InboxMessage("Payments", eventId, eventType, DateTime.UtcNow);
+                inboxEntry.MarkProcessed();
+                await dbContext.InboxMessages.AddAsync(inboxEntry, ct);
 
-            inboxEntry.MarkProcessed();
-            await unitOfWork.CompleteAsync();
+                // Fallback: if paymentId <= 0 or not found by id, try finding by bookingId
+                var payment = await paymentRepository.FindByIdAsync(paymentId);
+                if (payment is null && bookingId > 0)
+                {
+                    payment = await paymentRepository.FindByBookingIdAsync(bookingId);
+                    if (payment is not null) paymentId = payment.Id;
+                }
 
-            logger.LogInformation("Payment #{PaymentId} compensation successfully executed for event {EventId}.", paymentId, eventId);
+                if (payment is not null)
+                {
+                    await paymentCommandService.Handle(new RefundPaymentCommand(payment.Id, reason));
+                }
+                else
+                {
+                    logger.LogWarning("Payment #{PaymentId} (Booking #{BookingId}) not found for compensation.", paymentId, bookingId);
+                    inboxEntry.MarkFailed("Payment not found.");
+                }
+
+                await unitOfWork.CompleteAsync();
+                await tx.CommitAsync(ct);
+
+                logger.LogInformation("Payment #{PaymentId} compensation successfully executed for event {EventId}.", paymentId, eventId);
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync(ct);
+                logger.LogError(ex, "Transaction failed for compensation EventId {EventId}.", eventId);
+                throw;
+            }
         }
     }
 }

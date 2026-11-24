@@ -4,6 +4,7 @@ using SmartStay.Payments.Application.Internal.QueryServices;
 using SmartStay.Payments.Domain.Repositories;
 using SmartStay.Payments.Domain.Services;
 using SmartStay.Payments.Infrastructure.Clients;
+using SmartStay.Payments.Infrastructure.Configuration;
 using SmartStay.Payments.Infrastructure.Messaging;
 using SmartStay.Payments.Infrastructure.Persistence.EFC.Configuration;
 using SmartStay.Payments.Infrastructure.Persistence.EFC.Repositories;
@@ -17,6 +18,10 @@ builder.Services.AddControllers(options =>
 {
     options.Conventions.Add(new KebabCaseRouteNamingConvention());
 });
+
+// Options Pattern
+builder.Services.Configure<PaymentFeaturesOptions>(
+    builder.Configuration.GetSection(PaymentFeaturesOptions.SectionName));
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

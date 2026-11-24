@@ -1,6 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SmartStay.Contracts.Events.V1;
 using SmartStay.Payments.Domain.Model.Aggregates;
 using SmartStay.Payments.Domain.Model.Commands;
@@ -8,6 +12,7 @@ using SmartStay.Payments.Domain.Model.Entities;
 using SmartStay.Payments.Domain.Repositories;
 using SmartStay.Payments.Domain.Services;
 using SmartStay.Payments.Infrastructure.Clients;
+using SmartStay.Payments.Infrastructure.Configuration;
 
 namespace SmartStay.Payments.Application.Internal.CommandServices;
 
@@ -15,12 +20,13 @@ public class PaymentCommandService(
     IPaymentRepository paymentRepository,
     IPaymentsUnitOfWork unitOfWork,
     IBookingEligibilityClient eligibilityClient,
-    ILogger<PaymentCommandService> logger) : IPaymentCommandService
+    ILogger<PaymentCommandService> logger,
+    IOptions<PaymentFeaturesOptions>? featuresOptions = null) : IPaymentCommandService
 {
     public async Task<(Payment? Payment, bool IsDuplicate, string? ConflictReason)> Handle(ProcessPaymentCommand command)
     {
         // 1. Calcular hash de la solicitud para verificación de idempotencia
-        var requestSignature = $"{command.BookingId}:{command.Amount:F2}:{command.PaymentMethod}:{command.CardHolderName}:{command.CardNumber}";
+        var requestSignature = $"{command.BookingId}:{command.Amount:F2}:{command.PaymentMethod}:{command.CardHolderName}:{command.CardNumber}:{command.DemoPaymentMethodId}";
         var requestHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(requestSignature)));
 
         // 2. Comprobar Idempotency-Key si fue proporcionada
@@ -64,8 +70,124 @@ public class PaymentCommandService(
             return (null, false, $"Payment amount {command.Amount} does not match booking total {eligibility.TotalAmount}.");
         }
 
-        // 5. Instanciar agregado de Pago
-        var payment = new Payment(
+        var isDemoCard = string.Equals(command.PaymentMethod, "DemoCard", StringComparison.OrdinalIgnoreCase);
+
+        // 5. Flujo específico para DemoCard
+        if (isDemoCard)
+        {
+            var isDemoEnabled = featuresOptions?.Value.EnableDemoPayment ?? false;
+            if (!isDemoEnabled)
+            {
+                logger.LogWarning("DemoCard payment rejected because demo payment feature is disabled.");
+                return (null, false, "Demo payment feature is disabled.");
+            }
+
+            if (string.IsNullOrWhiteSpace(command.DemoPaymentMethodId))
+            {
+                logger.LogWarning("DemoCard payment rejected because DemoPaymentMethodId was not provided.");
+                return (null, false, "Demo payment method ID is required for DemoCard payments.");
+            }
+
+            await using var tx = await unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var demoMethod = await paymentRepository.FindDemoPaymentMethodByIdForUpdateAsync(command.DemoPaymentMethodId);
+                if (demoMethod is null)
+                {
+                    logger.LogWarning("Demo payment method {MethodId} not found.", command.DemoPaymentMethodId);
+                    return (null, false, "Demo payment method not found.");
+                }
+
+                if (!string.Equals(demoMethod.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.LogWarning("Demo payment method {MethodId} is not active (Status: {Status}).", command.DemoPaymentMethodId, demoMethod.Status);
+                    return (null, false, "Demo payment method is inactive.");
+                }
+
+                if (demoMethod.GuestUserId != command.ActorId)
+                {
+                    logger.LogWarning("Demo payment method {MethodId} is not owned by guest #{GuestId}.", command.DemoPaymentMethodId, command.ActorId);
+                    return (null, false, "Demo payment method is not owned by guest.");
+                }
+
+                if (demoMethod.Balance < command.Amount)
+                {
+                    logger.LogWarning("Insufficient balance on demo method {MethodId}: available {Balance}, required {Amount}.",
+                        command.DemoPaymentMethodId, demoMethod.Balance, command.Amount);
+                    return (null, false, $"Insufficient balance: available {demoMethod.Balance}, required {command.Amount}.");
+                }
+
+                // Débito atómico del saldo de la tarjeta ficticia
+                demoMethod.Debit(command.Amount);
+                paymentRepository.UpdateDemoPaymentMethod(demoMethod);
+
+                // Crear agregado de Pago completado
+                var payment = new Payment(
+                    command.BookingId,
+                    command.Amount,
+                    command.PaymentMethod,
+                    !string.IsNullOrWhiteSpace(command.CardHolderName) ? command.CardHolderName : "Demo Guest",
+                    cardNumber: string.Empty,
+                    demoPaymentMethodId: demoMethod.Id
+                );
+                payment.Complete();
+
+                await paymentRepository.AddAsync(payment);
+                await unitOfWork.CompleteAsync(); // Genera payment.Id autoincremental
+
+                // Registrar movimiento único en el libro de pagos (Ledger)
+                var movement = new PaymentLedgerMovement(
+                    demoMethod.Id,
+                    payment.Id,
+                    "Debit",
+                    command.Amount,
+                    demoMethod.Balance
+                );
+                await paymentRepository.AddLedgerMovementAsync(movement);
+
+                // Outbox message
+                var eventId = Guid.NewGuid();
+                var evt = new IntegrationEvent<PaymentCompletedV1>(
+                    EventId: eventId,
+                    EventType: "payments.payment-completed",
+                    SchemaVersion: 1,
+                    OccurredAtUtc: DateTimeOffset.UtcNow,
+                    CorrelationId: command.IdempotencyKey ?? eventId.ToString(),
+                    CausationId: null,
+                    AggregateId: payment.Id.ToString(),
+                    AggregateVersion: 1,
+                    Data: new PaymentCompletedV1(payment.Id, payment.BookingId, eligibility.HotelId, payment.Amount, eligibility.Currency)
+                );
+                var payload = JsonSerializer.Serialize(evt, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                var outboxMessage = new OutboxMessage(eventId, "payments.payment-completed", 1, payment.Id.ToString(), 1, payload);
+                await paymentRepository.AddOutboxMessageAsync(outboxMessage);
+
+                // Registro de idempotencia
+                if (!string.IsNullOrWhiteSpace(command.IdempotencyKey))
+                {
+                    var idempotencyRecord = new PaymentIdempotencyRecord(command.IdempotencyKey, command.ActorId, requestHash);
+                    idempotencyRecord.MarkCompleted(payment.Id.ToString());
+                    await paymentRepository.AddIdempotencyRecordAsync(idempotencyRecord);
+                }
+
+                await unitOfWork.CompleteAsync();
+                await tx.CommitAsync();
+
+                logger.LogInformation("Demo payment #{PaymentId} completed for booking #{BookingId}. New balance: {Balance}.",
+                    payment.Id, command.BookingId, demoMethod.Balance);
+
+                return (payment, false, null);
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                logger.LogError(ex, "Failed to persist demo payment and ledger for booking #{BookingId}.", command.BookingId);
+                throw;
+            }
+        }
+
+        // 6. Flujo estándar (tarjeta de crédito tradicional simulada)
+        var standardPayment = new Payment(
             command.BookingId,
             command.Amount,
             command.PaymentMethod,
@@ -73,24 +195,23 @@ public class PaymentCommandService(
             command.CardNumber
         );
 
-        // 6. Simulación de pasarela bancaria
         var isApproved = command.Amount > 0 && !command.CardNumber.EndsWith("0000");
 
         if (isApproved)
         {
-            payment.Complete();
+            standardPayment.Complete();
         }
         else
         {
-            payment.Fail();
+            standardPayment.Fail();
         }
 
         // 7. Transacción atómica en MySQL: Payment + OutboxMessage + IdempotencyRecord
-        await using var tx = await unitOfWork.BeginTransactionAsync();
+        await using var standardTx = await unitOfWork.BeginTransactionAsync();
         try
         {
-            await paymentRepository.AddAsync(payment);
-            await unitOfWork.CompleteAsync(); // Genera payment.Id autoincremental
+            await paymentRepository.AddAsync(standardPayment);
+            await unitOfWork.CompleteAsync(); // Genera standardPayment.Id autoincremental
 
             var eventId = Guid.NewGuid();
             OutboxMessage outboxMessage;
@@ -104,12 +225,12 @@ public class PaymentCommandService(
                     OccurredAtUtc: DateTimeOffset.UtcNow,
                     CorrelationId: command.IdempotencyKey ?? eventId.ToString(),
                     CausationId: null,
-                    AggregateId: payment.Id.ToString(),
+                    AggregateId: standardPayment.Id.ToString(),
                     AggregateVersion: 1,
-                    Data: new PaymentCompletedV1(payment.Id, payment.BookingId, eligibility.HotelId, payment.Amount, eligibility.Currency)
+                    Data: new PaymentCompletedV1(standardPayment.Id, standardPayment.BookingId, eligibility.HotelId, standardPayment.Amount, eligibility.Currency)
                 );
                 var payload = JsonSerializer.Serialize(evt, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-                outboxMessage = new OutboxMessage(eventId, "payments.payment-completed", 1, payment.Id.ToString(), 1, payload);
+                outboxMessage = new OutboxMessage(eventId, "payments.payment-completed", 1, standardPayment.Id.ToString(), 1, payload);
             }
             else
             {
@@ -120,12 +241,12 @@ public class PaymentCommandService(
                     OccurredAtUtc: DateTimeOffset.UtcNow,
                     CorrelationId: command.IdempotencyKey ?? eventId.ToString(),
                     CausationId: null,
-                    AggregateId: payment.Id.ToString(),
+                    AggregateId: standardPayment.Id.ToString(),
                     AggregateVersion: 1,
-                    Data: new PaymentFailedV1(payment.Id, payment.BookingId, "Card declined by simulation logic.")
+                    Data: new PaymentFailedV1(standardPayment.Id, standardPayment.BookingId, "Card declined by simulation logic.")
                 );
                 var payload = JsonSerializer.Serialize(evt, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-                outboxMessage = new OutboxMessage(eventId, "payments.payment-failed", 1, payment.Id.ToString(), 1, payload);
+                outboxMessage = new OutboxMessage(eventId, "payments.payment-failed", 1, standardPayment.Id.ToString(), 1, payload);
             }
 
             await paymentRepository.AddOutboxMessageAsync(outboxMessage);
@@ -133,21 +254,21 @@ public class PaymentCommandService(
             if (!string.IsNullOrWhiteSpace(command.IdempotencyKey))
             {
                 var idempotencyRecord = new PaymentIdempotencyRecord(command.IdempotencyKey, command.ActorId, requestHash);
-                idempotencyRecord.MarkCompleted(payment.Id.ToString());
+                idempotencyRecord.MarkCompleted(standardPayment.Id.ToString());
                 await paymentRepository.AddIdempotencyRecordAsync(idempotencyRecord);
             }
 
             await unitOfWork.CompleteAsync();
-            await tx.CommitAsync();
+            await standardTx.CommitAsync();
 
             logger.LogInformation("Payment #{PaymentId} processed with status {Status} and outbox event {EventId} stored.",
-                payment.Id, payment.Status, eventId);
+                standardPayment.Id, standardPayment.Status, eventId);
 
-            return (payment, false, null);
+            return (standardPayment, false, null);
         }
         catch (Exception ex)
         {
-            await tx.RollbackAsync();
+            await standardTx.RollbackAsync();
             logger.LogError(ex, "Failed to persist payment and outbox for booking #{BookingId}.", command.BookingId);
             throw;
         }
@@ -164,9 +285,38 @@ public class PaymentCommandService(
             return true;
         }
 
-        await using var tx = await unitOfWork.BeginTransactionAsync();
+        var hasActiveTx = unitOfWork.HasActiveTransaction;
+        IDbContextTransaction? tx = hasActiveTx ? null : await unitOfWork.BeginTransactionAsync();
         try
         {
+            var isDemo = !string.IsNullOrEmpty(payment.DemoPaymentMethodId) ||
+                         string.Equals(payment.PaymentMethod, "DemoCard", StringComparison.OrdinalIgnoreCase);
+
+            if (isDemo && !string.IsNullOrEmpty(payment.DemoPaymentMethodId))
+            {
+                var existingRefundMovement = await paymentRepository.FindLedgerMovementAsync(payment.Id, "Refund");
+                if (existingRefundMovement is null)
+                {
+                    var demoMethod = await paymentRepository.FindDemoPaymentMethodByIdForUpdateAsync(payment.DemoPaymentMethodId);
+                    if (demoMethod is not null)
+                    {
+                        demoMethod.Credit(payment.Amount);
+                        paymentRepository.UpdateDemoPaymentMethod(demoMethod);
+
+                        var movement = new PaymentLedgerMovement(
+                            demoMethod.Id,
+                            payment.Id,
+                            "Refund",
+                            payment.Amount,
+                            demoMethod.Balance
+                        );
+                        await paymentRepository.AddLedgerMovementAsync(movement);
+                        logger.LogInformation("Restored {Amount} USD to demo payment method {MethodId}. New balance: {Balance}.",
+                            payment.Amount, demoMethod.Id, demoMethod.Balance);
+                    }
+                }
+            }
+
             payment.Refund();
             paymentRepository.Update(payment);
 
@@ -188,15 +338,50 @@ public class PaymentCommandService(
 
             await paymentRepository.AddOutboxMessageAsync(outboxMessage);
             await unitOfWork.CompleteAsync();
-            await tx.CommitAsync();
+
+            if (tx is not null)
+            {
+                await tx.CommitAsync();
+                await tx.DisposeAsync();
+            }
 
             logger.LogInformation("Payment #{PaymentId} refunded successfully and outbox event queued.", payment.Id);
             return true;
         }
         catch (Exception ex)
         {
-            await tx.RollbackAsync();
+            if (tx is not null)
+            {
+                await tx.RollbackAsync();
+                await tx.DisposeAsync();
+            }
             logger.LogError(ex, "Failed to refund payment #{PaymentId}.", payment.Id);
+            throw;
+        }
+    }
+
+    public async Task<DemoPaymentMethod> Handle(ActivateDemoPaymentMethodCommand command)
+    {
+        var existing = await paymentRepository.FindDemoPaymentMethodByGuestUserIdAsync(command.GuestUserId);
+        if (existing is not null)
+        {
+            logger.LogInformation("Returning existing demo payment method {MethodId} for guest #{GuestId}.", existing.Id, command.GuestUserId);
+            return existing;
+        }
+
+        var method = new DemoPaymentMethod(command.GuestUserId);
+        try
+        {
+            await paymentRepository.AddDemoPaymentMethodAsync(method);
+            await unitOfWork.CompleteAsync();
+            logger.LogInformation("Activated new demo payment method {MethodId} for guest #{GuestId}.", method.Id, command.GuestUserId);
+            return method;
+        }
+        catch (DbUpdateException)
+        {
+            // Concurrency race: another thread activated the demo card concurrently
+            var reloaded = await paymentRepository.FindDemoPaymentMethodByGuestUserIdAsync(command.GuestUserId);
+            if (reloaded is not null) return reloaded;
             throw;
         }
     }

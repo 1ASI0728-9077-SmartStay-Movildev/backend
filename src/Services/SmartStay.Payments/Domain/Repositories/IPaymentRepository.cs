@@ -12,6 +12,16 @@ public interface IPaymentRepository
     Task<bool> HasCompletedPaymentForBookingAsync(int bookingId);
     void Update(Payment payment);
 
+    Task AddDemoPaymentMethodAsync(DemoPaymentMethod method);
+    Task<DemoPaymentMethod?> FindDemoPaymentMethodByGuestUserIdAsync(int guestUserId);
+    Task<DemoPaymentMethod?> FindDemoPaymentMethodByIdAsync(string id);
+    Task<DemoPaymentMethod?> FindDemoPaymentMethodByIdForUpdateAsync(string id, CancellationToken ct = default);
+    void UpdateDemoPaymentMethod(DemoPaymentMethod method);
+
+    Task AddLedgerMovementAsync(PaymentLedgerMovement movement);
+    Task<PaymentLedgerMovement?> FindLedgerMovementAsync(int paymentId, string operationType);
+    Task<List<PaymentLedgerMovement>> FindLedgerMovementsByDemoMethodAsync(string demoPaymentMethodId);
+
     Task AddOutboxMessageAsync(OutboxMessage outboxMessage);
     Task<List<OutboxMessage>> GetPendingOutboxMessagesAsync(int batchSize, CancellationToken ct = default);
 

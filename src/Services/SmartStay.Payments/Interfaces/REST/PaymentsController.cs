@@ -23,7 +23,7 @@ public class PaymentsController(
     [PaymentsAuthorize(UserRoles.Guest, UserRoles.Admin, UserRoles.ChainAdmin)]
     [SwaggerOperation(
         Summary = "Process a new payment transaction with idempotency and outbox publishing",
-        Description = "Simulates and records a credit card payment transaction for an active booking obligation.",
+        Description = "Simulates and records a credit card or demo card payment transaction for an active booking obligation.",
         OperationId = "ProcessPayment")]
     [SwaggerResponse(StatusCodes.Status201Created, "Payment was successfully processed and queued for asynchronous confirmation.", typeof(PaymentResource))]
     [SwaggerResponse(StatusCodes.Status200OK, "Idempotent replay: previous payment transaction returned.", typeof(PaymentResource))]
@@ -39,12 +39,13 @@ public class PaymentsController(
             resource.BookingId,
             resource.Amount,
             resource.PaymentMethod,
-            resource.CardNumber,
-            resource.CardHolderName,
-            resource.ExpirationDate,
-            resource.Cvv,
+            resource.CardNumber ?? string.Empty,
+            resource.CardHolderName ?? string.Empty,
+            resource.ExpirationDate ?? string.Empty,
+            resource.Cvv ?? string.Empty,
             idempotencyKey,
-            actorId
+            actorId,
+            resource.DemoPaymentMethodId
         );
 
         var (payment, isDuplicate, conflictReason) = await paymentCommandService.Handle(command);
@@ -84,5 +85,49 @@ public class PaymentsController(
 
         if (payment is null) return NotFound();
         return Ok(PaymentAssemblers.ToResourceFromEntity(payment));
+    }
+
+    [HttpPost("demo-method")]
+    [RequireDemoPayment]
+    [PaymentsAuthorize(UserRoles.Guest)]
+    [SwaggerOperation(
+        Summary = "Activate demo payment method for authenticated guest",
+        Description = "Creates or returns the active demo payment method for the authenticated guest.",
+        OperationId = "ActivateDemoPaymentMethod")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Demo payment method activated or already existing.", typeof(DemoPaymentMethodResource))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Unauthenticated caller.")]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Forbidden: demo payment feature disabled or caller not a guest.")]
+    public async Task<IActionResult> ActivateDemoPaymentMethod()
+    {
+        var actor = HttpContext.Items["Actor"] as CurrentActor;
+        if (actor is null) return Unauthorized();
+
+        var command = new ActivateDemoPaymentMethodCommand(actor.Id);
+        var method = await paymentCommandService.Handle(command);
+        return Ok(PaymentAssemblers.ToResourceFromEntity(method));
+    }
+
+    [HttpGet("demo-method")]
+    [RequireDemoPayment]
+    [PaymentsAuthorize(UserRoles.Guest)]
+    [SwaggerOperation(
+        Summary = "Get demo payment method for authenticated guest",
+        Description = "Retrieves the active demo payment method belonging to the authenticated guest.",
+        OperationId = "GetDemoPaymentMethod")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Demo payment method found.", typeof(DemoPaymentMethodResource))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Unauthenticated caller.")]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Forbidden: demo payment feature disabled or caller not a guest.")]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "No active demo payment method found for guest.")]
+    public async Task<IActionResult> GetDemoPaymentMethod()
+    {
+        var actor = HttpContext.Items["Actor"] as CurrentActor;
+        if (actor is null) return Unauthorized();
+
+        var query = new GetDemoPaymentMethodByGuestUserIdQuery(actor.Id);
+        var method = await paymentQueryService.Handle(query);
+        if (method is null)
+            return NotFound(new { message = "No active demo payment method found for guest." });
+
+        return Ok(PaymentAssemblers.ToResourceFromEntity(method));
     }
 }

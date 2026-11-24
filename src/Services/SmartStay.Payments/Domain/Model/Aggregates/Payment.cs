@@ -25,20 +25,23 @@ public class Payment
         decimal amount,
         string paymentMethod,
         string cardHolderName,
-        string cardNumber) : this()
+        string cardNumber,
+        string? demoPaymentMethodId = null) : this()
     {
         BookingId = bookingId;
         Amount = amount;
         PaymentMethod = paymentMethod;
         CardHolderName = cardHolderName;
-        CardNumberMasked = cardNumber.Length > 4
+        DemoPaymentMethodId = demoPaymentMethodId;
+        CardNumberMasked = !string.IsNullOrEmpty(cardNumber) && cardNumber.Length > 4
             ? "**** **** **** " + cardNumber[^4..]
-            : "****";
+            : (!string.IsNullOrEmpty(demoPaymentMethodId) ? "DemoCard" : "****");
     }
 
     public int Id { get; private set; }
     public int BookingId { get; private set; }
     public string TransactionId { get; private set; }
+    public string? DemoPaymentMethodId { get; private set; }
     public decimal Amount { get; private set; }
     public string PaymentMethod { get; private set; }
     public string CardHolderName { get; private set; }

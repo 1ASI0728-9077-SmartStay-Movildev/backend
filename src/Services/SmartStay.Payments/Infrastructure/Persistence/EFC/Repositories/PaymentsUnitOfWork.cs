@@ -6,6 +6,8 @@ namespace SmartStay.Payments.Infrastructure.Persistence.EFC.Repositories;
 
 public class PaymentsUnitOfWork(PaymentsDbContext context) : IPaymentsUnitOfWork
 {
+    public bool HasActiveTransaction => context.Database.CurrentTransaction != null;
+
     public async Task CompleteAsync()
     {
         await context.SaveChangesAsync();

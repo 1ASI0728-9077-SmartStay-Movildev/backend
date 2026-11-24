@@ -34,6 +34,56 @@ public class PaymentRepository(PaymentsDbContext context) : IPaymentRepository
         context.Payments.Update(payment);
     }
 
+    public async Task AddDemoPaymentMethodAsync(DemoPaymentMethod method)
+    {
+        await context.DemoPaymentMethods.AddAsync(method);
+    }
+
+    public async Task<DemoPaymentMethod?> FindDemoPaymentMethodByGuestUserIdAsync(int guestUserId)
+    {
+        return await context.DemoPaymentMethods.FirstOrDefaultAsync(m => m.GuestUserId == guestUserId);
+    }
+
+    public async Task<DemoPaymentMethod?> FindDemoPaymentMethodByIdAsync(string id)
+    {
+        return await context.DemoPaymentMethods.FirstOrDefaultAsync(m => m.Id == id);
+    }
+
+    public async Task<DemoPaymentMethod?> FindDemoPaymentMethodByIdForUpdateAsync(string id, CancellationToken ct = default)
+    {
+        if (context.Database.IsMySql())
+        {
+            return await context.DemoPaymentMethods
+                .FromSqlInterpolated($"SELECT * FROM demo_payment_methods WHERE id = {id} FOR UPDATE")
+                .FirstOrDefaultAsync(ct);
+        }
+        return await context.DemoPaymentMethods.FirstOrDefaultAsync(m => m.Id == id, ct);
+    }
+
+    public void UpdateDemoPaymentMethod(DemoPaymentMethod method)
+    {
+        context.DemoPaymentMethods.Update(method);
+    }
+
+    public async Task AddLedgerMovementAsync(PaymentLedgerMovement movement)
+    {
+        await context.PaymentLedgerMovements.AddAsync(movement);
+    }
+
+    public async Task<PaymentLedgerMovement?> FindLedgerMovementAsync(int paymentId, string operationType)
+    {
+        return await context.PaymentLedgerMovements
+            .FirstOrDefaultAsync(m => m.PaymentId == paymentId && m.OperationType == operationType);
+    }
+
+    public async Task<List<PaymentLedgerMovement>> FindLedgerMovementsByDemoMethodAsync(string demoPaymentMethodId)
+    {
+        return await context.PaymentLedgerMovements
+            .Where(m => m.DemoPaymentMethodId == demoPaymentMethodId)
+            .OrderBy(m => m.CreatedAtUtc)
+            .ToListAsync();
+    }
+
     public async Task AddOutboxMessageAsync(OutboxMessage outboxMessage)
     {
         await context.OutboxMessages.AddAsync(outboxMessage);

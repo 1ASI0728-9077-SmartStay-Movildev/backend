@@ -22,6 +22,65 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("SmartStay.Payments.Domain.Model.Aggregates.DemoPaymentMethod", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Balance")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("balance");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)")
+                        .HasColumnName("currency");
+
+                    b.Property<int>("GuestUserId")
+                        .HasColumnType("int")
+                        .HasColumnName("guest_user_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_demo_payment_methods");
+
+                    b.HasIndex(new[] { "GuestUserId" }, "ux_demo_payment_methods_guest_user_id")
+                        .IsUnique()
+                        .HasDatabaseName("ux_demo_payment_methods_guest_user_id");
+
+                    b.ToTable("demo_payment_methods", null, t =>
+                        {
+                            t.HasCheckConstraint("chk_demo_payment_methods_balance", "balance >= 0");
+                        });
+                });
+
             modelBuilder.Entity("SmartStay.Payments.Domain.Model.Aggregates.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -51,6 +110,11 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(30)")
                         .HasColumnName("card_number_masked");
 
+                    b.Property<string>("DemoPaymentMethodId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("demo_payment_method_id");
+
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("payment_date");
@@ -73,6 +137,9 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_payments");
+
+                    b.HasIndex(new[] { "DemoPaymentMethodId" }, "ix_payments_demo_payment_method_id")
+                        .HasDatabaseName("ix_payments_demo_payment_method_id");
 
                     b.HasIndex(new[] { "TransactionId" }, "ix_payments_transaction_id")
                         .IsUnique()
@@ -236,6 +303,59 @@ namespace SmartStay.Payments.Infrastructure.Persistence.Migrations
                         .HasName("pk_payment_idempotency_records");
 
                     b.ToTable("payment_idempotency_records", (string)null);
+                });
+
+            modelBuilder.Entity("SmartStay.Payments.Domain.Model.Entities.PaymentLedgerMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("balance_after");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("DemoPaymentMethodId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("demo_payment_method_id");
+
+                    b.Property<string>("OperationType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("operation_type");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("int")
+                        .HasColumnName("payment_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_payment_ledger_movements");
+
+                    b.HasIndex(new[] { "DemoPaymentMethodId" }, "ix_payment_ledger_movements_demo_payment_method_id")
+                        .HasDatabaseName("ix_payment_ledger_movements_demo_payment_method_id");
+
+                    b.HasIndex(new[] { "PaymentId", "OperationType" }, "ux_payment_ledger_movements_payment_operation")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payment_ledger_movements_payment_operation");
+
+                    b.ToTable("payment_ledger_movements", null, t =>
+                        {
+                            t.HasCheckConstraint("chk_payment_ledger_movements_amount", "amount > 0");
+                        });
                 });
 #pragma warning restore 612, 618
         }

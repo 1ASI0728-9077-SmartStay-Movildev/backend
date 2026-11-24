@@ -9,8 +9,11 @@ public record ProcessPaymentCommand(
     string ExpirationDate,
     string Cvv,
     string IdempotencyKey,
-    int ActorId
+    int ActorId,
+    string? DemoPaymentMethodId = null
 );
+
+public record ActivateDemoPaymentMethodCommand(int GuestUserId);
 
 public record RefundPaymentCommand(
     int PaymentId,
