@@ -10,4 +10,5 @@ public sealed record CurrentActor(
 {
     public bool IsChainAdmin => string.Equals(Role, "chain_admin", StringComparison.OrdinalIgnoreCase);
     public bool IsHotelAdmin => string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+    public bool IsAdmin => IsHotelAdmin || IsChainAdmin;
 }
